@@ -1,0 +1,7 @@
+{
+  "name": "EcolePro Gestion",
+  "description": "Plateforme complète de gestion scolaire : Vie scolaire, Notes, Finances, RH et Emplois du temps.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
