@@ -3,8 +3,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { TimeSlot, SchoolClass, Teacher, SystemUser } from '../types';
 import { db } from '../services/db';
 import { 
-  Calendar, Clock, Plus, X, Save, Filter, Trash2, Printer, 
-  AlertTriangle, Users, GraduationCap, Edit
+  Clock, Plus, X, Save, Printer, 
+  Users, GraduationCap
 } from 'lucide-react';
 import { DEFAULT_SUBJECTS } from '../constants';
 
@@ -59,19 +59,21 @@ export const TimeTableManager: React.FC<TimeTableManagerProps> = ({
   const canWrite = db.hasPermission(currentSchoolId, currentUser.role, 'TIMETABLE.write');
 
   useEffect(() => {
-    setTimeSlots(db.getTimeSlots(currentSchoolId));
-    const config = db.getSchoolConfig(currentSchoolId);
-    if (config.subjects) setSubjects(config.subjects);
+    Promise.resolve().then(() => {
+      setTimeSlots(db.getTimeSlots(currentSchoolId));
+      const config = db.getSchoolConfig(currentSchoolId);
+      if (config.subjects) setSubjects(config.subjects);
 
-    if (currentUser.role === 'TEACHER') {
-        setViewType('TEACHER');
-        const teacher = teachers.find(t => t.email === currentUser.email);
-        if (teacher) setSelectedEntityId(teacher.id);
-        else if (teachers.length > 0) setSelectedEntityId(teachers[0].id);
-    } else {
-        if (teachers.length > 0) setSelectedEntityId(teachers[0].id);
-    }
-  }, [currentSchoolId, currentUser]);
+      if (currentUser.role === 'TEACHER') {
+          setViewType('TEACHER');
+          const teacher = teachers.find(t => t.email === currentUser.email);
+          if (teacher) setSelectedEntityId(teacher.id);
+          else if (teachers.length > 0) setSelectedEntityId(teachers[0].id);
+      } else {
+          if (teachers.length > 0) setSelectedEntityId(teachers[0].id);
+      }
+    });
+  }, [currentSchoolId, currentUser, teachers]);
 
   const handleSaveSlot = (e: React.FormEvent) => {
     e.preventDefault();
@@ -83,7 +85,7 @@ export const TimeTableManager: React.FC<TimeTableManagerProps> = ({
         classId: newSlot.classId,
         teacherId: newSlot.teacherId,
         subject: newSlot.subject,
-        dayOfWeek: newSlot.dayOfWeek as any,
+        dayOfWeek: newSlot.dayOfWeek as TimeSlot['dayOfWeek'],
         startTime: newSlot.startTime,
         endTime: newSlot.endTime,
         room: newSlot.room || 'Non définie',
@@ -139,7 +141,7 @@ export const TimeTableManager: React.FC<TimeTableManagerProps> = ({
 
   // --- RENDER HELPERS FOR OFFICIAL TABLE ---
 
-  const getSlotForCell = (day: string, startStr: string, endStr: string) => {
+  const getSlotForCell = (day: string, startStr: string) => {
       // Simplified match: check if slot starts at or falls within
       return timeSlots.find(slot => {
           // Match Entity
@@ -350,7 +352,7 @@ export const TimeTableManager: React.FC<TimeTableManagerProps> = ({
                                     <tr key={idx}>
                                         <td className="border border-black py-2 font-mono bg-white">{row.start} - {row.end}</td>
                                         {ADMIN_DAYS.map(day => {
-                                            const slot = getSlotForCell(day, row.start, row.end);
+                                            const slot = getSlotForCell(day, row.start);
                                             const slotClass = classes.find(c => c.id === slot?.classId);
                                             return (
                                                 <td key={day} className="border border-black relative h-10 hover:bg-blue-50 transition-colors cursor-pointer"
@@ -361,7 +363,7 @@ export const TimeTableManager: React.FC<TimeTableManagerProps> = ({
                                                                     setNewSlot(slot); setIsModalOpen(true);
                                                                 }
                                                             } else {
-                                                                setNewSlot({ dayOfWeek: day as any, startTime: row.start, endTime: row.end, teacherId: selectedEntityId });
+                                                                setNewSlot({ dayOfWeek: day as TimeSlot['dayOfWeek'], startTime: row.start, endTime: row.end, teacherId: selectedEntityId });
                                                                 setIsModalOpen(true);
                                                             }
                                                         }
@@ -505,7 +507,7 @@ export const TimeTableManager: React.FC<TimeTableManagerProps> = ({
                                     <tr key={idx}>
                                         <td className="border border-black py-2 font-mono bg-white">{row.start} - {row.end}</td>
                                         {ADMIN_DAYS.map(day => {
-                                            const slot = getSlotForCell(day, row.start, row.end);
+                                            const slot = getSlotForCell(day, row.start);
                                             const slotTeacher = teachers.find(t => t.id === slot?.teacherId);
                                             return (
                                                 <td key={day} className="border border-black relative h-10 hover:bg-blue-50 transition-colors cursor-pointer"
@@ -516,7 +518,7 @@ export const TimeTableManager: React.FC<TimeTableManagerProps> = ({
                                                                     setNewSlot(slot); setIsModalOpen(true);
                                                                 }
                                                             } else {
-                                                                setNewSlot({ dayOfWeek: day as any, startTime: row.start, endTime: row.end, classId: selectedEntityId });
+                                                                setNewSlot({ dayOfWeek: day as TimeSlot['dayOfWeek'], startTime: row.start, endTime: row.end, classId: selectedEntityId });
                                                                 setIsModalOpen(true);
                                                             }
                                                         }
@@ -649,7 +651,7 @@ export const TimeTableManager: React.FC<TimeTableManagerProps> = ({
                                 <select 
                                     className="w-full p-2 border rounded text-sm"
                                     value={newSlot.dayOfWeek}
-                                    onChange={e => setNewSlot({...newSlot, dayOfWeek: e.target.value as any})}
+                                    onChange={e => setNewSlot({...newSlot, dayOfWeek: e.target.value as TimeSlot['dayOfWeek']})}
                                 >
                                     {ADMIN_DAYS.map(d => <option key={d} value={d}>{d.charAt(0) + d.slice(1).toLowerCase()}</option>)}
                                 </select>

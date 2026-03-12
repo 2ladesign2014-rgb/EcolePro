@@ -5,8 +5,8 @@ import { db } from '../services/db';
 import { formatCurrency } from '../constants';
 import { 
   TrendingUp, TrendingDown, CreditCard, 
-  Printer, Briefcase, CheckCircle, Plus, X, Filter, 
-  Search, Smartphone, Banknote, FileText, CheckCircle2, User, Users, Download, Wallet, Building
+  Printer, Briefcase, CheckCircle, Plus, X, 
+  Search, Smartphone, Banknote, FileText, CheckCircle2, User, Users, Wallet, Building
 } from 'lucide-react';
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
@@ -18,14 +18,15 @@ interface FinanceManagerProps {
 }
 
 export const FinanceManager: React.FC<FinanceManagerProps> = ({ transactions, onAddTransaction, currentSchoolId, currentUser }) => {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'transactions' | 'payroll'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'transactions' | 'payroll' | 'student_report'>('dashboard');
   const [teachers, setTeachers] = useState<Teacher[]>(db.getTeachers(currentSchoolId));
   const [students, setStudents] = useState<Student[]>([]);
+  const [selectedStudentId, setSelectedStudentId] = useState<string>('');
 
   // Filters State
-  const [filterCategory, setFilterCategory] = useState<string>('All');
-  const [filterStatus, setFilterStatus] = useState<string>('All');
-  const [filterDate, setFilterDate] = useState<string>('All');
+  const [filterCategory] = useState<string>('All');
+  const [filterStatus] = useState<string>('All');
+  const [filterDate] = useState<string>('All');
   const [searchTerm, setSearchTerm] = useState('');
 
   // Add Transaction Modal State
@@ -164,6 +165,7 @@ export const FinanceManager: React.FC<FinanceManagerProps> = ({ transactions, on
 
   const handleAddTransactionSubmit = (e: React.FormEvent) => {
       e.preventDefault();
+      const now = new Date().getTime();
       let finalStudentName = trxForm.studentName;
       if (trxForm.studentId) {
           const s = students.find(st => st.id === trxForm.studentId);
@@ -171,14 +173,14 @@ export const FinanceManager: React.FC<FinanceManagerProps> = ({ transactions, on
       }
       let finalRef = trxForm.reference;
       if (!finalRef && trxForm.paymentMethod !== 'Espèces') {
-          finalRef = `REF-${Date.now()}`;
+          finalRef = `REF-${now}`;
       }
       const paymentDetails = trxForm.paymentMethod === 'Mobile Money' && trxForm.operator 
           ? trxForm.operator 
           : undefined;
 
       const newTrx: Transaction = {
-          id: `TRX-${Date.now()}`,
+          id: `TRX-${now}`,
           schoolId: currentSchoolId,
           studentId: trxForm.studentId,
           studentName: finalStudentName,
@@ -370,6 +372,102 @@ export const FinanceManager: React.FC<FinanceManagerProps> = ({ transactions, on
       printWindow.document.close();
   };
 
+  const handlePrintReceipt = (trx: Transaction) => {
+      const school = db.getSchools().find(s => s.id === currentSchoolId);
+      const printWindow = window.open('', '_blank');
+      if (!printWindow) return;
+
+      const html = `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>Reçu de Paiement - ${trx.id}</title>
+            <style>
+              body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #333; line-height: 1.6; padding: 40px; max-width: 800px; margin: 0 auto; }
+              .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #1e40af; padding-bottom: 20px; margin-bottom: 30px; }
+              .school-info h1 { margin: 0; color: #1e40af; font-size: 24px; }
+              .school-info p { margin: 5px 0 0; color: #666; font-size: 14px; }
+              .receipt-title { text-align: right; }
+              .receipt-title h2 { margin: 0; color: #1e40af; font-size: 28px; text-transform: uppercase; letter-spacing: 2px; }
+              .receipt-title p { margin: 5px 0 0; color: #666; font-size: 14px; }
+              .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 40px; }
+              .info-box { background: #f8fafc; padding: 20px; border-radius: 8px; border: 1px solid #e2e8f0; }
+              .info-label { font-size: 12px; text-transform: uppercase; color: #64748b; font-weight: bold; letter-spacing: 1px; display: block; margin-bottom: 5px; }
+              .info-value { font-size: 16px; color: #0f172a; font-weight: 600; }
+              table { w-full; border-collapse: collapse; margin-bottom: 40px; }
+              th, td { padding: 15px; text-align: left; border-bottom: 1px solid #e2e8f0; }
+              th { background-color: #f8fafc; font-weight: 600; color: #475569; text-transform: uppercase; font-size: 12px; letter-spacing: 1px; }
+              .total-row td { font-weight: bold; font-size: 18px; border-top: 2px solid #1e40af; border-bottom: none; }
+              .stamp { display: flex; justify-content: space-between; margin-top: 60px; padding-top: 20px; border-top: 1px dashed #cbd5e1; }
+              .stamp div { text-align: center; width: 200px; height: 100px; border: 1px solid #e2e8f0; border-radius: 4px; display: flex; align-items: center; justify-content: center; color: #94a3b8; font-size: 14px; font-style: italic; }
+              .footer { text-align: center; margin-top: 40px; font-size: 12px; color: #94a3b8; }
+              @media print { body { padding: 0; } .stamp div { border: none; } }
+            </style>
+          </head>
+          <body>
+            <div class="header">
+              <div class="school-info">
+                <h1>${school?.name || 'École'}</h1>
+                <p>${school?.address || ''}</p>
+                <p>${school?.config?.email || ''} | ${school?.config?.phone || ''}</p>
+              </div>
+              <div class="receipt-title">
+                <h2>REÇU</h2>
+                <p>N° ${trx.id}</p>
+                <p>Date: ${new Date(trx.date).toLocaleDateString('fr-FR')}</p>
+              </div>
+            </div>
+
+            <div class="info-grid">
+              <div class="info-box">
+                <span class="info-label">Reçu de</span>
+                <div class="info-value">${trx.studentName || 'N/A'}</div>
+                ${trx.period ? `<div style="font-size:14px; margin-top:5px; color: #64748b;">Période: ${trx.period}</div>` : ''}
+              </div>
+              <div class="info-box">
+                <span class="info-label">Détails du Paiement</span>
+                <div class="info-value">${trx.paymentMethod || 'Espèces'}</div>
+                <div style="font-size:14px; margin-top:5px; color: #64748b;">Statut: ${trx.status === 'Paid' ? 'Payé' : 'En attente'}</div>
+              </div>
+            </div>
+
+            <table style="width: 100%;">
+              <thead>
+                <tr>
+                  <th>Description</th>
+                  <th>Type</th>
+                  <th style="text-align:right">Montant</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Règlement des frais de scolarité / autres frais</td>
+                  <td>${trx.type}</td>
+                  <td style="text-align:right">${trx.amount.toLocaleString('fr-FR')} FCFA</td>
+                </tr>
+                <tr class="total-row">
+                  <td colspan="2">TOTAL PAYÉ</td>
+                  <td style="text-align:right; color: #1e40af;">${trx.amount.toLocaleString('fr-FR')} FCFA</td>
+                </tr>
+              </tbody>
+            </table>
+
+            <div class="stamp">
+              <div>Signature de l'émetteur</div>
+              <div>Cachet de l'établissement</div>
+            </div>
+
+            <div class="footer">
+              Ce reçu est généré électroniquement et est valide sans signature physique.
+            </div>
+            <script>window.print();</script>
+          </body>
+        </html>
+      `;
+      printWindow.document.write(html);
+      printWindow.document.close();
+  };
+
   const PAYMENT_MODES = [
       { id: 'Espèces', icon: Banknote, label: 'Espèces' },
       { id: 'Mobile Money', icon: Smartphone, label: 'Mobile Money' },
@@ -392,6 +490,7 @@ export const FinanceManager: React.FC<FinanceManagerProps> = ({ transactions, on
         <button onClick={() => setActiveTab('dashboard')} className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === 'dashboard' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}>Vue d'ensemble</button>
         <button onClick={() => setActiveTab('transactions')} className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === 'transactions' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}>Historique Transactions</button>
         <button onClick={() => setActiveTab('payroll')} className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === 'payroll' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}>Paie & Salaires</button>
+        <button onClick={() => setActiveTab('student_report')} className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === 'student_report' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}>Rapport Étudiant</button>
       </div>
 
       {activeTab === 'dashboard' && (
@@ -599,6 +698,140 @@ export const FinanceManager: React.FC<FinanceManagerProps> = ({ transactions, on
           </div>
       )}
 
+      {activeTab === 'student_report' && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 flex flex-col h-full overflow-hidden">
+          <div className="p-4 border-b border-gray-100 flex flex-col sm:flex-row justify-between items-start sm:items-center bg-gray-50 gap-4">
+            <div className="flex items-center space-x-4 w-full sm:w-auto">
+              <div className="relative w-full sm:w-80">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                <select 
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none appearance-none bg-white"
+                  value={selectedStudentId}
+                  onChange={(e) => setSelectedStudentId(e.target.value)}
+                >
+                  <option value="">Sélectionner un élève...</option>
+                  {students.map(s => (
+                    <option key={s.id} value={s.id}>{s.firstName} {s.lastName} - {s.classGrade}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            {selectedStudentId && (
+              <button 
+                onClick={() => window.print()} 
+                className="flex items-center px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium"
+              >
+                <Printer size={16} className="mr-2" /> Imprimer le rapport
+              </button>
+            )}
+          </div>
+
+          {selectedStudentId ? (() => {
+            const student = students.find(s => s.id === selectedStudentId);
+            const studentTransactions = transactions.filter(t => t.studentId === selectedStudentId).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+            const totalPaid = studentTransactions.filter(t => t.flow === 'IN' && t.status === 'Paid').reduce((acc, t) => acc + t.amount, 0);
+            const totalPending = studentTransactions.filter(t => t.flow === 'IN' && t.status === 'Pending').reduce((acc, t) => acc + t.amount, 0);
+
+            return (
+              <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
+                <div className="max-w-4xl mx-auto space-y-6">
+                  {/* Student Info Card */}
+                  <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between">
+                    <div className="flex items-center space-x-4">
+                      <div className="h-16 w-16 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 text-2xl font-bold">
+                        {student?.firstName.charAt(0)}{student?.lastName.charAt(0)}
+                      </div>
+                      <div>
+                        <h2 className="text-xl font-bold text-gray-800">{student?.firstName} {student?.lastName}</h2>
+                        <p className="text-gray-500">Matricule: {student?.matricule} • Classe: {student?.classGrade}</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-sm text-gray-500 mb-1">Total Payé</div>
+                      <div className="text-2xl font-bold text-emerald-600">{formatCurrency(totalPaid)}</div>
+                    </div>
+                  </div>
+
+                  {/* Summary Cards */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
+                      <div className="text-blue-600 text-sm font-medium mb-1">Scolarité Payée</div>
+                      <div className="text-xl font-bold text-blue-800">
+                        {formatCurrency(studentTransactions.filter(t => t.type === 'Tuition' && t.status === 'Paid').reduce((acc, t) => acc + t.amount, 0))}
+                      </div>
+                    </div>
+                    <div className="bg-amber-50 p-4 rounded-xl border border-amber-100">
+                      <div className="text-amber-600 text-sm font-medium mb-1">En Attente</div>
+                      <div className="text-xl font-bold text-amber-800">{formatCurrency(totalPending)}</div>
+                    </div>
+                    <div className="bg-purple-50 p-4 rounded-xl border border-purple-100">
+                      <div className="text-purple-600 text-sm font-medium mb-1">Autres Frais</div>
+                      <div className="text-xl font-bold text-purple-800">
+                        {formatCurrency(studentTransactions.filter(t => t.type !== 'Tuition' && t.flow === 'IN' && t.status === 'Paid').reduce((acc, t) => acc + t.amount, 0))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Transaction History */}
+                  <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                    <div className="p-4 border-b border-gray-100 bg-gray-50">
+                      <h3 className="font-bold text-gray-800">Historique des Paiements</h3>
+                    </div>
+                    {studentTransactions.length > 0 ? (
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider border-b border-gray-200">
+                            <th className="px-6 py-3 font-medium">Date</th>
+                            <th className="px-6 py-3 font-medium">Type</th>
+                            <th className="px-6 py-3 font-medium">Période</th>
+                            <th className="px-6 py-3 font-medium">Montant</th>
+                            <th className="px-6 py-3 font-medium">Statut</th>
+                            <th className="px-6 py-3 font-medium">Reçu</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                          {studentTransactions.map(trx => (
+                            <tr key={trx.id} className="hover:bg-gray-50 transition-colors">
+                              <td className="px-6 py-4 text-sm text-gray-600">{new Date(trx.date).toLocaleDateString('fr-FR')}</td>
+                              <td className="px-6 py-4 text-sm font-medium text-gray-800">{getTypeLabel(trx.type)}</td>
+                              <td className="px-6 py-4 text-sm text-gray-500">{trx.period || '-'}</td>
+                              <td className="px-6 py-4 text-sm font-bold text-gray-800">{formatCurrency(trx.amount)}</td>
+                              <td className="px-6 py-4">
+                                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                  trx.status === 'Paid' ? 'bg-emerald-100 text-emerald-700' : 
+                                  trx.status === 'Pending' ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-700'
+                                }`}>
+                                  {trx.status === 'Paid' ? 'Payé' : trx.status === 'Pending' ? 'En attente' : 'En retard'}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4">
+                                <button onClick={() => handlePrintReceipt(trx)} className="text-blue-600 hover:text-blue-800 p-1 rounded-md hover:bg-blue-50 transition-colors" title="Imprimer le reçu">
+                                  <Printer size={16} />
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    ) : (
+                      <div className="p-8 text-center text-gray-500">
+                        Aucune transaction trouvée pour cet élève.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })() : (
+            <div className="flex-1 flex flex-col items-center justify-center text-gray-400 p-8">
+              <User size={48} className="mb-4 text-gray-300" />
+              <p className="text-lg font-medium text-gray-500">Sélectionnez un élève</p>
+              <p className="text-sm">Choisissez un élève dans la liste pour voir son rapport financier détaillé.</p>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* NEW TRANSACTION MODAL */}
       {isTrxModalOpen && canWrite && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in zoom-in-95">
@@ -661,7 +894,7 @@ export const FinanceManager: React.FC<FinanceManagerProps> = ({ transactions, on
                               <div className="flex flex-wrap gap-3">
                                   {MOBILE_OPERATORS.map(op => {
                                       const isSelected = trxForm.operator === op.id;
-                                      let borderColor = isSelected ? (op.color === 'orange' ? 'border-orange-500 bg-orange-50 text-orange-700' : op.color === 'blue' ? 'border-blue-500 bg-blue-50 text-blue-700' : op.color === 'yellow' ? 'border-yellow-500 bg-yellow-50 text-yellow-700' : 'border-green-500 bg-green-50 text-green-700') : 'border-gray-200 bg-white text-gray-700';
+                                      const borderColor = isSelected ? (op.color === 'orange' ? 'border-orange-500 bg-orange-50 text-orange-700' : op.color === 'blue' ? 'border-blue-500 bg-blue-50 text-blue-700' : op.color === 'yellow' ? 'border-yellow-500 bg-yellow-50 text-yellow-700' : 'border-green-500 bg-green-50 text-green-700') : 'border-gray-200 bg-white text-gray-700';
                                       return (
                                           <button key={op.id} type="button" onClick={() => setTrxForm({...trxForm, operator: op.id})} className={`flex-1 min-w-[120px] py-3 px-4 border rounded-lg text-sm font-bold transition-all shadow-sm ${borderColor}`}>{op.label}</button>
                                       );

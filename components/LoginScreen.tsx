@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { SystemUser, UserRole } from '../types';
-import { Lock, Shield, User, BookOpen, Wallet, GraduationCap, Users, Library, Baby } from 'lucide-react';
+import { Lock, Shield, User, BookOpen, Wallet, Users, Library } from 'lucide-react';
 
 interface LoginScreenProps {
   onLogin: (user: SystemUser) => void;

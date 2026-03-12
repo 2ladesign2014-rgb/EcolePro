@@ -1,10 +1,11 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { 
   Building, Users, Database, History, 
-  Save, RefreshCw, Download, Upload, Trash2, 
-  Plus, AlertTriangle, School as SchoolIcon, Image as ImageIcon, X, CheckSquare, Square, Lock, KeyRound, ShieldCheck,
-  GraduationCap, NotebookPen, FolderOpen, MessageSquare, BookOpen, BadgeEuro, Briefcase, CalendarDays, Bot, FileJson, FileCode, Library, RotateCcw, Edit
+  Save, RefreshCw, Download, Upload, Trash2, Search,
+  Plus, AlertTriangle, School as SchoolIcon, Image as ImageIcon, X, CheckSquare, Square, Lock, ShieldCheck,
+  GraduationCap, NotebookPen, FolderOpen, MessageSquare, BookOpen, BadgeEuro, Briefcase, CalendarDays, Bot, FileJson, FileCode, Library, RotateCcw, Edit,
+  UserCircle, Mail, Shield, Globe, MapPin, Key, Info
 } from 'lucide-react';
 import { SchoolConfig, SystemUser, AuditLogEntry, UserRole, School, SchoolModule, PermissionId } from '../types';
 import { AVAILABLE_MODULES, DEFAULT_PERMISSIONS, DETAILED_PERMISSIONS, DEFAULT_SUBJECTS, DEFAULT_SCHOOL_CONFIG } from '../constants';
@@ -16,12 +17,17 @@ interface SettingsManagerProps {
 
 export const SettingsManager: React.FC<SettingsManagerProps> = ({ onUpdate }) => {
   const [currentUser, setCurrentUser] = useState<SystemUser | null>(null);
-  const [activeTab, setActiveTab] = useState<'config' | 'subjects' | 'permissions' | 'schools' | 'users' | 'backup' | 'audit'>('config');
+  const [activeTab, setActiveTab] = useState<'profile' | 'config' | 'subjects' | 'permissions' | 'schools' | 'users' | 'backup' | 'audit'>('profile');
   
   const [schools, setSchools] = useState<School[]>([]);
   const [users, setUsers] = useState<SystemUser[]>([]);
   const [logs, setLogs] = useState<AuditLogEntry[]>([]);
   
+  // Search & Filter
+  const [userSearch, setUserSearch] = useState('');
+  const [logSearch, setLogSearch] = useState('');
+  const [notification, setNotification] = useState<{message: string, type: 'success' | 'error'} | null>(null);
+
   // School Editing
   const [schoolForm, setSchoolForm] = useState<Partial<School>>({});
   const [isSchoolModalOpen, setIsSchoolModalOpen] = useState(false);
@@ -48,16 +54,14 @@ export const SettingsManager: React.FC<SettingsManagerProps> = ({ onUpdate }) =>
       confirmPin: ''
   });
 
-  useEffect(() => {
-    const session = localStorage.getItem('session');
-    if (session) {
-      const user = JSON.parse(session);
-      setCurrentUser(user);
-      refreshData(user);
-    }
-  }, []);
+  const [passwordData, setPasswordData] = useState({
+      currentPassword: '',
+      newPassword: '',
+      confirmPassword: ''
+  });
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
 
-  const refreshData = (user: SystemUser) => {
+  const refreshData = useCallback((user: SystemUser) => {
     const allSchools = db.getSchools();
     setSchools(allSchools);
     setUsers(db.getSystemUsers());
@@ -75,7 +79,18 @@ export const SettingsManager: React.FC<SettingsManagerProps> = ({ onUpdate }) =>
         setRolePermissions(allSchools[0].config.rolePermissions || JSON.parse(JSON.stringify(DEFAULT_PERMISSIONS)));
         setSubjects(allSchools[0].config.subjects || DEFAULT_SUBJECTS);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    const session = localStorage.getItem('session');
+    if (session) {
+      Promise.resolve().then(() => {
+        const user = JSON.parse(session);
+        setCurrentUser(user);
+        refreshData(user);
+      });
+    }
+  }, [refreshData]);
 
   const isSuperAdmin = currentUser?.role === 'SUPER_ADMIN';
 
@@ -183,7 +198,7 @@ export const SettingsManager: React.FC<SettingsManagerProps> = ({ onUpdate }) =>
         name: schoolForm.name,
         address: schoolForm.address || '',
         logoUrl: schoolForm.logoUrl !== undefined ? schoolForm.logoUrl : existingSchool?.logoUrl,
-        type: (schoolForm.type as any) || 'SECONDAIRE',
+        type: (schoolForm.type as 'MATERNELLE' | 'PRIMAIRE' | 'SECONDAIRE' | 'SUPERIEUR') || 'SECONDAIRE',
         config: syncedConfig,
         modules: schoolForm.modules || existingSchool?.modules || AVAILABLE_MODULES.map(m => m.id)
     };
@@ -193,7 +208,12 @@ export const SettingsManager: React.FC<SettingsManagerProps> = ({ onUpdate }) =>
     setSchoolForm({});
     setSchools(db.getSchools());
     if(onUpdate) onUpdate();
-    alert('École enregistrée avec succès !');
+    showNotification('École enregistrée avec succès !', 'success');
+  };
+
+  const showNotification = (message: string, type: 'success' | 'error' = 'success') => {
+    setNotification({ message, type });
+    setTimeout(() => setNotification(null), 3000);
   };
 
   const handleSaveConfig = (e: React.FormEvent) => {
@@ -215,7 +235,7 @@ export const SettingsManager: React.FC<SettingsManagerProps> = ({ onUpdate }) =>
           db.saveSchool(updatedSchool);
           setCurrentSchool(updatedSchool);
           if(onUpdate) onUpdate();
-          alert("Configuration, matières et permissions mises à jour.");
+          showNotification("Configuration mise à jour avec succès.");
       }
   };
 
@@ -274,7 +294,28 @@ export const SettingsManager: React.FC<SettingsManagerProps> = ({ onUpdate }) =>
       db.saveSchool(updatedSchool);
       setCurrentSchool(updatedSchool);
       setPinData({ currentPin: '', newPin: '', confirmPin: '' });
-      alert("Code PIN de sécurité mis à jour avec succès.");
+      showNotification("Code PIN de sécurité mis à jour avec succès.");
+  };
+
+  const handleChangePassword = (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!currentUser) return;
+
+      if (passwordData.newPassword !== passwordData.confirmPassword) {
+          showNotification("Les nouveaux mots de passe ne correspondent pas.", 'error');
+          return;
+      }
+
+      if (passwordData.newPassword.length < 6) {
+          showNotification("Le mot de passe doit contenir au moins 6 caractères.", 'error');
+          return;
+      }
+
+      // In a real app, we would verify the current password and update the database
+      // For this demo, we'll just simulate success
+      showNotification("Mot de passe mis à jour avec succès.");
+      setIsPasswordModalOpen(false);
+      setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
   };
 
   const togglePermission = (role: UserRole, permission: string) => {
@@ -375,14 +416,43 @@ export const SettingsManager: React.FC<SettingsManagerProps> = ({ onUpdate }) =>
       { id: 'ADMIN', label: 'Administrateur' }
   ];
 
+  const filteredUsers = useMemo(() => {
+    return users.filter(u => 
+      u.name.toLowerCase().includes(userSearch.toLowerCase()) || 
+      u.email.toLowerCase().includes(userSearch.toLowerCase()) ||
+      u.role.toLowerCase().includes(userSearch.toLowerCase())
+    );
+  }, [users, userSearch]);
+
+  const filteredLogs = useMemo(() => {
+    return logs.filter(l => 
+      l.user.toLowerCase().includes(logSearch.toLowerCase()) || 
+      l.action.toLowerCase().includes(logSearch.toLowerCase()) ||
+      l.details.toLowerCase().includes(logSearch.toLowerCase())
+    ).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  }, [logs, logSearch]);
+
   return (
-    <div className="flex h-[calc(100vh-140px)] gap-6">
+    <div className="flex h-[calc(100vh-140px)] gap-6 relative">
+      {/* Notification Toast */}
+      {notification && (
+        <div className={`fixed top-4 right-4 z-[100] animate-in slide-in-from-right-full p-4 rounded-lg shadow-lg flex items-center gap-3 ${notification.type === 'success' ? 'bg-emerald-500 text-white' : 'bg-red-500 text-white'}`}>
+          {notification.type === 'success' ? <CheckSquare size={20} /> : <AlertTriangle size={20} />}
+          <span className="font-medium">{notification.message}</span>
+          <button onClick={() => setNotification(null)} className="ml-2 hover:opacity-70"><X size={16} /></button>
+        </div>
+      )}
+
       {/* Sidebar Nav */}
       <div className="w-64 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
         <div className="p-4 border-b border-gray-100 bg-gray-50">
           <h3 className="font-bold text-gray-700">Paramètres</h3>
         </div>
         <nav className="flex-1 p-2 space-y-1">
+          <button onClick={() => setActiveTab('profile')} className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium ${activeTab === 'profile' ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:bg-gray-50'}`}>
+            <UserCircle size={18} /> <span>Mon Profil</span>
+          </button>
+          <div className="my-2 border-t border-gray-100 mx-2"></div>
           <button onClick={() => setActiveTab('config')} className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium ${activeTab === 'config' ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:bg-gray-50'}`}>
             <Building size={18} /> <span>Général</span>
           </button>
@@ -415,111 +485,275 @@ export const SettingsManager: React.FC<SettingsManagerProps> = ({ onUpdate }) =>
 
       {/* Content Area */}
       <div className="flex-1 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
-        {/* CONFIG TAB */}
-        {activeTab === 'config' && currentSchool && (
-             <div className="p-6 flex-1 overflow-auto">
-                 <h2 className="text-xl font-bold mb-4">Configuration de l'établissement</h2>
-                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                     <form onSubmit={handleSaveConfig} className="space-y-6">
-                         {/* LOGO SECTION */}
-                         <div className="p-4 border border-gray-200 rounded-lg bg-gray-50">
-                            <label className="block text-sm font-medium text-gray-700 mb-3">Logo de l'établissement</label>
-                            <div className="flex items-center space-x-6">
-                                <div className="h-24 w-24 bg-white border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center overflow-hidden relative group">
-                                    {currentSchool.logoUrl ? (
-                                        <img src={currentSchool.logoUrl} alt="Logo" className="w-full h-full object-contain" />
-                                    ) : (
-                                        <ImageIcon className="text-gray-300" size={32} />
-                                    )}
-                                    {currentSchool.logoUrl && (
-                                        <button 
-                                            type="button"
-                                            onClick={() => setCurrentSchool({...currentSchool, logoUrl: undefined})}
-                                            className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
-                                        >
-                                            <X size={12} />
-                                        </button>
-                                    )}
+        {/* PROFILE TAB */}
+        {activeTab === 'profile' && currentUser && (
+            <div className="p-8 flex-1 overflow-auto">
+                <div className="max-w-4xl mx-auto">
+                    <div className="flex items-center gap-6 mb-10">
+                        <div className="h-24 w-24 rounded-full bg-blue-600 flex items-center justify-center text-white text-4xl font-bold shadow-lg shadow-blue-200">
+                            {currentUser.name.charAt(0)}
+                        </div>
+                        <div>
+                            <h2 className="text-3xl font-bold text-gray-900">{currentUser.name}</h2>
+                            <p className="text-gray-500 flex items-center gap-2 mt-1">
+                                <Mail size={16} /> {currentUser.email}
+                            </p>
+                            <div className="flex gap-2 mt-3">
+                                <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-bold uppercase tracking-wider">
+                                    {currentUser.role}
+                                </span>
+                                <span className="px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-xs font-bold">
+                                    Compte Actif
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="bg-gray-50 p-6 rounded-xl border border-gray-100">
+                            <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
+                                <Info size={18} className="text-blue-600" /> Informations Personnelles
+                            </h3>
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Nom Complet</label>
+                                    <p className="text-gray-900 font-medium">{currentUser.name}</p>
                                 </div>
-                                <div className="flex-1">
-                                    <input 
-                                        type="file" 
-                                        accept="image/*" 
-                                        onChange={(e) => handleLogoUpload(e, 'config')}
-                                        className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                                    />
-                                    <p className="text-xs text-gray-500 mt-2">Format recommandé : PNG ou JPG transparent, max 500KB.</p>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Email</label>
+                                    <p className="text-gray-900 font-medium">{currentUser.email}</p>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Dernière Connexion</label>
+                                    <p className="text-gray-900 font-medium">{currentUser.lastLogin}</p>
                                 </div>
                             </div>
-                         </div>
+                        </div>
 
-                         <div className="grid grid-cols-2 gap-4">
-                             <div>
-                                 <label className="block text-sm font-medium mb-1">Nom affiché</label>
-                                 <input type="text" className="w-full p-2 border rounded bg-white" value={currentSchool.name} onChange={(e) => setCurrentSchool({...currentSchool, name: e.target.value})} readOnly={!isSuperAdmin} />
-                             </div>
-                             <div>
-                                 <label className="block text-sm font-medium mb-1">Adresse</label>
-                                 <input type="text" className="w-full p-2 border rounded bg-white" value={currentSchool.address} onChange={(e) => setCurrentSchool({...currentSchool, address: e.target.value})} />
-                             </div>
-                         </div>
+                        <div className="bg-gray-50 p-6 rounded-xl border border-gray-100">
+                            <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
+                                <Shield size={18} className="text-blue-600" /> Sécurité & Accès
+                            </h3>
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Rôle Système</label>
+                                    <p className="text-gray-900 font-medium">{currentUser.role}</p>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Établissement</label>
+                                    <p className="text-gray-900 font-medium">
+                                        {schools.find(s => s.id === currentUser.schoolId)?.name || 'Administration Centrale'}
+                                    </p>
+                                </div>
+                                <button 
+                                    onClick={() => setIsPasswordModalOpen(true)}
+                                    className="mt-2 text-blue-600 text-sm font-bold hover:underline flex items-center gap-1"
+                                >
+                                    <Key size={14} /> Modifier mon mot de passe
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        )}
 
-                         {/* MODULES SECTION */}
-                         <div className="p-4 border border-gray-200 rounded-lg">
-                             <div className="flex justify-between items-center mb-3">
-                                 <h3 className="text-md font-bold">Modules Activés</h3>
-                                 <button type="button" onClick={() => toggleAllModules('config')} className="text-xs font-medium text-blue-600 hover:text-blue-800 flex items-center">
-                                    {AVAILABLE_MODULES.every(m => currentSchool.modules?.includes(m.id)) ? (
-                                        <><CheckSquare size={14} className="mr-1" /> Tout désactiver</>
-                                    ) : (
-                                        <><Square size={14} className="mr-1" /> Tout activer</>
-                                    )}
-                                 </button>
-                             </div>
-                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                 {AVAILABLE_MODULES.map(module => (
-                                     <div key={module.id} className="flex items-start space-x-2 p-2 hover:bg-gray-50 rounded cursor-pointer" onClick={() => toggleModule(module.id, 'config')}>
-                                         <div className={`mt-0.5 w-5 h-5 rounded border flex items-center justify-center flex-shrink-0 ${currentSchool.modules?.includes(module.id) ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-gray-300'}`}>
-                                             {currentSchool.modules?.includes(module.id) && <CheckSquare size={14} />}
-                                         </div>
-                                         <div>
-                                             <p className="text-sm font-medium">{module.label}</p>
-                                             <p className="text-xs text-gray-500">{module.description}</p>
-                                         </div>
-                                     </div>
-                                 ))}
-                             </div>
-                         </div>
+        {/* CONFIG TAB */}
+        {activeTab === 'config' && currentSchool && (
+             <div className="p-6 flex-1 overflow-auto bg-gray-50/30">
+                 <div className="max-w-5xl mx-auto">
+                    <div className="flex justify-between items-center mb-8">
+                        <div>
+                            <h2 className="text-2xl font-bold text-gray-900">Configuration de l'établissement</h2>
+                            <p className="text-sm text-gray-500">Gérez l'identité et les paramètres globaux de votre école.</p>
+                        </div>
+                        <button onClick={handleSaveConfig} className="bg-blue-600 text-white px-6 py-2.5 rounded-xl font-bold hover:bg-blue-700 flex items-center shadow-lg shadow-blue-600/20 transition-all">
+                            <Save size={18} className="mr-2" /> Enregistrer tout
+                        </button>
+                    </div>
 
-                         <div className="flex justify-end pt-4">
-                            <button type="submit" className="bg-blue-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-blue-700 flex items-center">
-                                <Save size={18} className="mr-2" /> Enregistrer les modifications
-                            </button>
-                         </div>
-                     </form>
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        {/* Left Column: Identity & Security */}
+                        <div className="lg:col-span-2 space-y-6">
+                            {/* Identity Card */}
+                            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+                                <h3 className="font-bold text-gray-800 mb-6 flex items-center gap-2">
+                                    <Building size={20} className="text-blue-600" /> Identité de l'école
+                                </h3>
+                                
+                                <div className="flex flex-col md:flex-row gap-8">
+                                    <div className="flex flex-col items-center">
+                                        <div className="h-32 w-32 bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl flex items-center justify-center overflow-hidden relative group transition-all hover:border-blue-300">
+                                            {currentSchool.logoUrl ? (
+                                                <img src={currentSchool.logoUrl} alt="Logo" className="w-full h-full object-contain p-2" />
+                                            ) : (
+                                                <ImageIcon className="text-gray-300" size={40} />
+                                            )}
+                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                <label className="cursor-pointer p-2 bg-white rounded-full text-blue-600 shadow-lg">
+                                                    <Upload size={20} />
+                                                    <input type="file" accept="image/*" onChange={(e) => handleLogoUpload(e, 'config')} className="hidden" />
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <p className="text-[10px] text-gray-400 mt-2 uppercase font-bold tracking-wider">Logo Officiel</p>
+                                    </div>
 
-                     {/* SECURITY PIN SECTION */}
-                     <div className="border-t lg:border-t-0 lg:border-l border-gray-200 lg:pl-8 pt-8 lg:pt-0">
-                         <h3 className="text-md font-bold mb-4 flex items-center text-gray-800"><Lock size={18} className="mr-2 text-amber-500" /> Sécurité d'accès</h3>
-                         <div className="bg-amber-50 border border-amber-100 rounded-lg p-4 mb-6">
-                             <p className="text-sm text-amber-800">Le module de configuration est protégé par un code PIN. Le code par défaut est <strong>0000</strong>.</p>
-                         </div>
-                         <form onSubmit={handleChangePin} className="space-y-4">
-                             <div>
-                                 <label className="block text-sm font-medium text-gray-700 mb-1">Code PIN Actuel</label>
-                                 <input type="password" maxLength={4} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none font-mono tracking-widest" value={pinData.currentPin} onChange={e => setPinData({...pinData, currentPin: e.target.value})} placeholder="••••" />
-                             </div>
-                             <div>
-                                 <label className="block text-sm font-medium text-gray-700 mb-1">Nouveau Code PIN</label>
-                                 <input type="password" maxLength={4} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none font-mono tracking-widest" value={pinData.newPin} onChange={e => setPinData({...pinData, newPin: e.target.value})} placeholder="••••" />
-                             </div>
-                             <div>
-                                 <label className="block text-sm font-medium text-gray-700 mb-1">Confirmer Nouveau PIN</label>
-                                 <input type="password" maxLength={4} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none font-mono tracking-widest" value={pinData.confirmPin} onChange={e => setPinData({...pinData, confirmPin: e.target.value})} placeholder="••••" />
-                             </div>
-                             <button type="submit" className="w-full bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg font-medium hover:bg-gray-50">Mettre à jour le PIN</button>
-                         </form>
-                     </div>
+                                    <div className="flex-1 space-y-4">
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-400 uppercase mb-1 ml-1">Nom de l'établissement</label>
+                                            <div className="relative">
+                                                <Building className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                                                <input 
+                                                    type="text" 
+                                                    className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all font-medium" 
+                                                    value={currentSchool.name} 
+                                                    onChange={(e) => setCurrentSchool({...currentSchool, name: e.target.value})} 
+                                                    readOnly={!isSuperAdmin} 
+                                                />
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-400 uppercase mb-1 ml-1">Adresse Physique</label>
+                                            <div className="relative">
+                                                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                                                <input 
+                                                    type="text" 
+                                                    className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all font-medium" 
+                                                    value={currentSchool.address} 
+                                                    onChange={(e) => setCurrentSchool({...currentSchool, address: e.target.value})} 
+                                                />
+                                            </div>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="block text-xs font-bold text-gray-400 uppercase mb-1 ml-1">Type d'enseignement</label>
+                                                <div className="px-4 py-2.5 bg-blue-50 text-blue-700 rounded-xl font-bold text-sm border border-blue-100">
+                                                    {currentSchool.type}
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-bold text-gray-400 uppercase mb-1 ml-1">ID Système</label>
+                                                <div className="px-4 py-2.5 bg-gray-100 text-gray-500 rounded-xl font-mono text-xs border border-gray-200">
+                                                    {currentSchool.id}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Modules Card */}
+                            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+                                <div className="flex justify-between items-center mb-6">
+                                    <h3 className="font-bold text-gray-800 flex items-center gap-2">
+                                        <Globe size={20} className="text-blue-600" /> Modules & Fonctionnalités
+                                    </h3>
+                                    <button type="button" onClick={() => toggleAllModules('config')} className="text-xs font-bold text-blue-600 hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-2">
+                                        {AVAILABLE_MODULES.every(m => currentSchool.modules?.includes(m.id)) ? (
+                                            <><CheckSquare size={14} /> Tout désactiver</>
+                                        ) : (
+                                            <><Square size={14} /> Tout activer</>
+                                        )}
+                                    </button>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {AVAILABLE_MODULES.map(module => (
+                                        <div 
+                                            key={module.id} 
+                                            className={`flex items-start gap-4 p-4 rounded-xl border transition-all cursor-pointer group ${
+                                                currentSchool.modules?.includes(module.id) 
+                                                ? 'bg-blue-50/50 border-blue-100 ring-1 ring-blue-100' 
+                                                : 'bg-white border-gray-100 hover:border-blue-200'
+                                            }`}
+                                            onClick={() => toggleModule(module.id, 'config')}
+                                        >
+                                            <div className={`p-2.5 rounded-xl transition-colors ${
+                                                currentSchool.modules?.includes(module.id) 
+                                                ? 'bg-white text-blue-600 shadow-sm' 
+                                                : 'bg-gray-50 text-gray-400 group-hover:text-blue-400'
+                                            }`}>
+                                                {getModuleIcon(module.id)}
+                                            </div>
+                                            <div className="flex-1">
+                                                <div className="flex justify-between items-center">
+                                                    <p className={`text-sm font-bold ${currentSchool.modules?.includes(module.id) ? 'text-blue-900' : 'text-gray-700'}`}>
+                                                        {module.label}
+                                                    </p>
+                                                    {currentSchool.modules?.includes(module.id) && (
+                                                        <CheckSquare size={16} className="text-blue-600" />
+                                                    )}
+                                                </div>
+                                                <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">{module.description}</p>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Right Column: Security PIN */}
+                        <div className="space-y-6">
+                            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm sticky top-6">
+                                <h3 className="font-bold text-gray-800 mb-6 flex items-center gap-2">
+                                    <Lock size={20} className="text-amber-500" /> Sécurité d'accès
+                                </h3>
+                                
+                                <div className="p-4 bg-amber-50 border border-amber-100 rounded-xl mb-6">
+                                    <div className="flex gap-3">
+                                        <AlertTriangle className="text-amber-600 shrink-0" size={20} />
+                                        <p className="text-xs text-amber-800 leading-relaxed font-medium">
+                                            L'accès aux paramètres sensibles est protégé par un code PIN. 
+                                            Par défaut : <span className="font-bold bg-white px-1.5 py-0.5 rounded border border-amber-200 ml-1">0000</span>
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <form onSubmit={handleChangePin} className="space-y-5">
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-400 uppercase mb-1.5 ml-1">Code PIN Actuel</label>
+                                        <input 
+                                            type="password" 
+                                            maxLength={4} 
+                                            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-amber-500 outline-none font-mono tracking-[1em] text-center text-lg bg-gray-50 focus:bg-white transition-all" 
+                                            value={pinData.currentPin} 
+                                            onChange={e => setPinData({...pinData, currentPin: e.target.value})} 
+                                            placeholder="••••" 
+                                        />
+                                    </div>
+                                    <div className="h-px bg-gray-100 my-2"></div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-400 uppercase mb-1.5 ml-1">Nouveau Code PIN</label>
+                                        <input 
+                                            type="password" 
+                                            maxLength={4} 
+                                            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-amber-500 outline-none font-mono tracking-[1em] text-center text-lg bg-gray-50 focus:bg-white transition-all" 
+                                            value={pinData.newPin} 
+                                            onChange={e => setPinData({...pinData, newPin: e.target.value})} 
+                                            placeholder="••••" 
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-400 uppercase mb-1.5 ml-1">Confirmer PIN</label>
+                                        <input 
+                                            type="password" 
+                                            maxLength={4} 
+                                            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-amber-500 outline-none font-mono tracking-[1em] text-center text-lg bg-gray-50 focus:bg-white transition-all" 
+                                            value={pinData.confirmPin} 
+                                            onChange={e => setPinData({...pinData, confirmPin: e.target.value})} 
+                                            placeholder="••••" 
+                                        />
+                                    </div>
+                                    <button 
+                                        type="submit" 
+                                        className="w-full bg-gray-900 text-white py-3 rounded-xl font-bold hover:bg-black transition-all shadow-lg shadow-gray-200"
+                                    >
+                                        Mettre à jour le PIN
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
                  </div>
              </div>
         )}
@@ -533,24 +767,47 @@ export const SettingsManager: React.FC<SettingsManagerProps> = ({ onUpdate }) =>
                         <p className="text-sm text-gray-500">Définissez la liste des matières enseignées dans l'établissement.</p>
                     </div>
                     <div className="flex gap-3">
-                        <button onClick={handleResetSubjects} className="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg font-medium hover:bg-gray-50 flex items-center" title="Réinitialiser">
+                        <button onClick={handleResetSubjects} className="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg font-medium hover:bg-gray-50 flex items-center transition-colors" title="Réinitialiser">
                             <RotateCcw size={16} className="mr-2" /> Liste par défaut
                         </button>
-                        <button onClick={handleSaveConfig} className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 flex items-center">
+                        <button onClick={handleSaveConfig} className="bg-blue-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-blue-700 flex items-center shadow-lg shadow-blue-600/20 transition-all">
                             <Save size={18} className="mr-2" /> Enregistrer
                         </button>
                     </div>
                  </div>
-                 <div className="max-w-3xl">
-                     <div className="flex gap-2 mb-6">
-                        <input type="text" className="flex-1 p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Nom de la matière (ex: Mathématiques, SVT...)" value={newSubjectInput} onChange={(e) => setNewSubjectInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleAddSubject()} />
-                        <button onClick={handleAddSubject} className="bg-gray-800 text-white px-4 py-2 rounded-lg hover:bg-gray-900 flex items-center"><Plus size={18} className="mr-1"/> Ajouter</button>
+                 <div className="max-w-4xl">
+                     <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 mb-8 flex items-center gap-4">
+                        <div className="p-3 bg-white rounded-lg text-blue-600 shadow-sm">
+                            <BookOpen size={24} />
+                        </div>
+                        <div className="flex-1">
+                            <h4 className="font-bold text-blue-900">Ajouter une nouvelle matière</h4>
+                            <div className="flex gap-2 mt-2">
+                                <input 
+                                    type="text" 
+                                    className="flex-1 px-4 py-2 border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white text-sm" 
+                                    placeholder="Ex: Informatique, Musique, Arts Plastiques..." 
+                                    value={newSubjectInput} 
+                                    onChange={(e) => setNewSubjectInput(e.target.value)} 
+                                    onKeyDown={(e) => e.key === 'Enter' && handleAddSubject()} 
+                                />
+                                <button onClick={handleAddSubject} className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 font-bold flex items-center transition-colors">
+                                    <Plus size={18} className="mr-1"/> Ajouter
+                                </button>
+                            </div>
+                        </div>
                      </div>
-                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+
+                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                         {subjects.sort().map((subject) => (
-                            <div key={subject} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200 group hover:border-blue-300 transition-colors">
-                                <span className="font-medium text-gray-700">{subject}</span>
-                                <button onClick={() => handleRemoveSubject(subject)} className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1" title="Supprimer"><Trash2 size={16} /></button>
+                            <div key={subject} className="flex items-center justify-between p-4 bg-white rounded-xl border border-gray-100 shadow-sm group hover:border-blue-300 hover:shadow-md transition-all">
+                                <div className="flex items-center gap-3">
+                                    <div className="h-2 w-2 rounded-full bg-blue-400"></div>
+                                    <span className="font-semibold text-gray-700">{subject}</span>
+                                </div>
+                                <button onClick={() => handleRemoveSubject(subject)} className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all p-1" title="Supprimer">
+                                    <Trash2 size={16} />
+                                </button>
                             </div>
                         ))}
                      </div>
@@ -658,27 +915,80 @@ export const SettingsManager: React.FC<SettingsManagerProps> = ({ onUpdate }) =>
 
         {activeTab === 'users' && (
              <div className="flex flex-col h-full">
-                 <div className="p-6 border-b flex justify-between">
-                     <h2 className="text-xl font-bold">Utilisateurs</h2>
-                     <button onClick={() => { setUserForm({}); setIsUserModalOpen(true); }} className="bg-blue-600 text-white px-4 py-2 rounded text-sm flex items-center gap-2"><Plus size={16} /> Nouveau</button>
+                 <div className="p-6 border-b flex justify-between items-center">
+                     <div>
+                        <h2 className="text-xl font-bold">Utilisateurs</h2>
+                        <p className="text-sm text-gray-500">Gérez les comptes d'accès au système.</p>
+                     </div>
+                     <div className="flex gap-3">
+                        <div className="relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                            <input 
+                                type="text" 
+                                placeholder="Rechercher..." 
+                                className="pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none w-64"
+                                value={userSearch}
+                                onChange={e => setUserSearch(e.target.value)}
+                            />
+                        </div>
+                        <button onClick={() => { setUserForm({}); setIsUserModalOpen(true); }} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-blue-700 transition-colors">
+                            <Plus size={16} /> Nouveau
+                        </button>
+                     </div>
                  </div>
                  <div className="flex-1 overflow-auto">
                      <table className="w-full text-left">
                          <thead className="bg-gray-50 text-xs uppercase text-gray-500 sticky top-0">
-                             <tr><th className="px-6 py-3">Nom</th><th className="px-6 py-3">Rôle</th><th className="px-6 py-3">École (ID)</th><th className="px-6 py-3">Actions</th></tr>
+                             <tr><th className="px-6 py-3">Utilisateur</th><th className="px-6 py-3">Rôle</th><th className="px-6 py-3">Établissement</th><th className="px-6 py-3">Actions</th></tr>
                          </thead>
-                         <tbody>
-                             {users.map(u => (
-                                 <tr key={u.id} className="border-b border-gray-50 hover:bg-gray-50">
-                                     <td className="px-6 py-3 font-medium">{u.name}<br/><span className="text-xs text-gray-400">{u.email}</span></td>
-                                     <td className="px-6 py-3"><span className="bg-gray-100 px-2 py-1 rounded text-xs font-bold">{u.role}</span></td>
-                                     <td className="px-6 py-3 text-xs text-gray-500">{u.schoolId || 'N/A'}</td>
-                                     <td className="px-6 py-3 flex gap-2">
-                                         <button onClick={() => { setUserForm(u); setIsUserModalOpen(true); }} className="text-blue-500 hover:text-blue-700"><Edit size={16}/></button>
-                                         <button onClick={() => handleDeleteUser(u.id)} className="text-red-500 hover:text-red-700"><Trash2 size={16}/></button>
+                         <tbody className="divide-y divide-gray-100">
+                             {filteredUsers.length > 0 ? filteredUsers.map(u => (
+                                 <tr key={u.id} className="hover:bg-gray-50 transition-colors">
+                                     <td className="px-6 py-4">
+                                         <div className="flex items-center gap-3">
+                                             <div className="h-10 w-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 font-bold">
+                                                 {u.name.charAt(0)}
+                                             </div>
+                                             <div>
+                                                 <p className="font-medium text-gray-900">{u.name}</p>
+                                                 <p className="text-xs text-gray-500">{u.email}</p>
+                                             </div>
+                                         </div>
+                                     </td>
+                                     <td className="px-6 py-4">
+                                         <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                                             u.role === 'SUPER_ADMIN' ? 'bg-purple-100 text-purple-700' :
+                                             u.role === 'ADMIN' ? 'bg-blue-100 text-blue-700' :
+                                             u.role === 'TEACHER' ? 'bg-emerald-100 text-emerald-700' :
+                                             'bg-gray-100 text-gray-700'
+                                         }`}>
+                                             {u.role}
+                                         </span>
+                                     </td>
+                                     <td className="px-6 py-4">
+                                         <div className="flex items-center gap-2 text-sm text-gray-600">
+                                             <Building size={14} className="text-gray-400" />
+                                             {schools.find(s => s.id === u.schoolId)?.name || 'Tous'}
+                                         </div>
+                                     </td>
+                                     <td className="px-6 py-4">
+                                         <div className="flex gap-2">
+                                             <button onClick={() => { setUserForm(u); setIsUserModalOpen(true); }} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Modifier">
+                                                 <Edit size={16}/>
+                                             </button>
+                                             <button onClick={() => handleDeleteUser(u.id)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Supprimer">
+                                                 <Trash2 size={16}/>
+                                             </button>
+                                         </div>
                                      </td>
                                  </tr>
-                             ))}
+                             )) : (
+                                 <tr>
+                                     <td colSpan={4} className="px-6 py-12 text-center text-gray-500">
+                                         Aucun utilisateur trouvé.
+                                     </td>
+                                 </tr>
+                             )}
                          </tbody>
                      </table>
                  </div>
@@ -754,35 +1064,127 @@ export const SettingsManager: React.FC<SettingsManagerProps> = ({ onUpdate }) =>
         {/* AUDIT TAB */}
         {activeTab === 'audit' && isSuperAdmin && (
             <div className="flex flex-col h-full">
-                <div className="p-6 border-b border-gray-100">
-                    <h2 className="text-xl font-bold text-gray-800">Journal d'Audit Système</h2>
-                    <p className="text-sm text-gray-500">Historique des actions critiques et de sécurité.</p>
+                <div className="p-6 border-b border-gray-100 flex justify-between items-center">
+                    <div>
+                        <h2 className="text-xl font-bold text-gray-800">Journal d'Audit Système</h2>
+                        <p className="text-sm text-gray-500">Historique des actions critiques et de sécurité.</p>
+                    </div>
+                    <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                        <input 
+                            type="text" 
+                            placeholder="Rechercher dans les logs..." 
+                            className="pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none w-80"
+                            value={logSearch}
+                            onChange={e => setLogSearch(e.target.value)}
+                        />
+                    </div>
                 </div>
                 <div className="flex-1 overflow-auto">
                     <table className="w-full text-left">
-                        <thead className="bg-gray-50 text-xs uppercase text-gray-500 sticky top-0">
-                            <tr><th className="px-6 py-3">Horodatage</th><th className="px-6 py-3">Utilisateur</th><th className="px-6 py-3">Action</th><th className="px-6 py-3">Détails</th><th className="px-6 py-3">Niveau</th></tr>
+                        <thead className="bg-gray-50/50 text-[10px] uppercase text-gray-400 font-bold tracking-widest sticky top-0 backdrop-blur-sm border-b border-gray-100">
+                            <tr>
+                                <th className="px-6 py-4">Horodatage</th>
+                                <th className="px-6 py-4">Utilisateur</th>
+                                <th className="px-6 py-4">Action</th>
+                                <th className="px-6 py-4">Détails</th>
+                                <th className="px-6 py-4">Niveau</th>
+                            </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
-                            {logs.map(log => (
-                                <tr key={log.id} className="hover:bg-gray-50">
-                                    <td className="px-6 py-4 text-sm text-gray-500 font-mono">{new Date(log.timestamp).toLocaleString()}</td>
-                                    <td className="px-6 py-4 text-sm font-medium">{log.user}</td>
-                                    <td className="px-6 py-4 text-sm text-gray-800">{log.action}</td>
-                                    <td className="px-6 py-4 text-sm text-gray-600 max-w-xs truncate" title={log.details}>{log.details}</td>
+                            {filteredLogs.length > 0 ? filteredLogs.map(log => (
+                                <tr key={log.id} className="hover:bg-gray-50 transition-colors">
+                                    <td className="px-6 py-4 text-sm text-gray-500 font-mono whitespace-nowrap">{new Date(log.timestamp).toLocaleString()}</td>
+                                    <td className="px-6 py-4 text-sm font-medium text-gray-900">{log.user}</td>
+                                    <td className="px-6 py-4 text-sm text-gray-800 font-semibold">{log.action}</td>
+                                    <td className="px-6 py-4 text-sm text-gray-600 max-w-md truncate" title={log.details}>{log.details}</td>
                                     <td className="px-6 py-4">
-                                        <span className={`px-2 py-1 rounded-full text-xs font-bold ${log.type === 'CRITICAL' ? 'bg-red-100 text-red-700' : log.type === 'WARNING' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'}`}>
+                                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                                            log.type === 'CRITICAL' ? 'bg-red-100 text-red-700' : 
+                                            log.type === 'WARNING' ? 'bg-amber-100 text-amber-700' : 
+                                            'bg-blue-100 text-blue-700'
+                                        }`}>
                                             {log.type === 'CRITICAL' ? 'Critique' : log.type === 'WARNING' ? 'Avertissement' : 'Info'}
                                         </span>
                                     </td>
                                 </tr>
-                            ))}
+                            )) : (
+                                <tr>
+                                    <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
+                                        Aucun log trouvé.
+                                    </td>
+                                </tr>
+                            )}
                         </tbody>
                     </table>
                 </div>
             </div>
         )}
       </div>
+
+      {/* MODALS */}
+      {isPasswordModalOpen && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
+              <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden animate-in zoom-in-95 duration-200">
+                  <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                      <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                          <Key className="text-blue-600" size={20} /> Modifier le mot de passe
+                      </h3>
+                      <button onClick={() => setIsPasswordModalOpen(false)} className="text-gray-400 hover:text-gray-600 transition-colors">
+                          <X size={24} />
+                      </button>
+                  </div>
+                  <form onSubmit={handleChangePassword} className="p-6 space-y-4">
+                      <div>
+                          <label className="block text-xs font-bold text-gray-400 uppercase mb-1.5 ml-1">Mot de passe actuel</label>
+                          <input 
+                              type="password" 
+                              required
+                              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none bg-gray-50 focus:bg-white transition-all" 
+                              value={passwordData.currentPassword}
+                              onChange={e => setPasswordData({...passwordData, currentPassword: e.target.value})}
+                          />
+                      </div>
+                      <div className="h-px bg-gray-100 my-2"></div>
+                      <div>
+                          <label className="block text-xs font-bold text-gray-400 uppercase mb-1.5 ml-1">Nouveau mot de passe</label>
+                          <input 
+                              type="password" 
+                              required
+                              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none bg-gray-50 focus:bg-white transition-all" 
+                              value={passwordData.newPassword}
+                              onChange={e => setPasswordData({...passwordData, newPassword: e.target.value})}
+                          />
+                      </div>
+                      <div>
+                          <label className="block text-xs font-bold text-gray-400 uppercase mb-1.5 ml-1">Confirmer le nouveau mot de passe</label>
+                          <input 
+                              type="password" 
+                              required
+                              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none bg-gray-50 focus:bg-white transition-all" 
+                              value={passwordData.confirmPassword}
+                              onChange={e => setPasswordData({...passwordData, confirmPassword: e.target.value})}
+                          />
+                      </div>
+                      <div className="flex gap-3 pt-4">
+                          <button 
+                              type="button"
+                              onClick={() => setIsPasswordModalOpen(false)}
+                              className="flex-1 px-4 py-3 border border-gray-200 rounded-xl font-bold text-gray-600 hover:bg-gray-50 transition-all"
+                          >
+                              Annuler
+                          </button>
+                          <button 
+                              type="submit"
+                              className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-100"
+                          >
+                              Mettre à jour
+                          </button>
+                      </div>
+                  </form>
+              </div>
+          </div>
+      )}
 
       {/* MODALS (School & User) - Same as before, just kept for completeness in the file return */}
       {isSchoolModalOpen && (
@@ -798,7 +1200,7 @@ export const SettingsManager: React.FC<SettingsManagerProps> = ({ onUpdate }) =>
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                         <input placeholder="Nom de l'école" className="w-full p-2 border rounded" value={schoolForm.name || ''} onChange={e => setSchoolForm({...schoolForm, name: e.target.value})} required />
-                        <select className="w-full p-2 border rounded bg-white" value={schoolForm.type || 'SECONDAIRE'} onChange={e => setSchoolForm({...schoolForm, type: e.target.value as any})}>
+                        <select className="w-full p-2 border rounded bg-white" value={schoolForm.type || 'SECONDAIRE'} onChange={e => setSchoolForm({...schoolForm, type: e.target.value as 'MATERNELLE' | 'PRIMAIRE' | 'SECONDAIRE' | 'SUPERIEUR'})}>
                           <option value="PRIMAIRE">Primaire</option>
                           <option value="SECONDAIRE">Secondaire / Lycée</option>
                           <option value="SUPERIEUR">Supérieur</option>

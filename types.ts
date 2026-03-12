@@ -11,6 +11,7 @@ export type SchoolModule =
   | 'STUDENTS' 
   | 'TEACHERS' 
   | 'ACADEMIC' 
+  | 'COURSES' // New Module
   | 'HOMEWORK' 
   | 'GRADES' 
   | 'FINANCE' 
@@ -30,7 +31,7 @@ export interface School {
   name: string;
   address: string;
   logoUrl?: string; // Pour la personnalisation
-  type: 'PRIMAIRE' | 'SECONDAIRE' | 'SUPERIEUR';
+  type: 'MATERNELLE' | 'PRIMAIRE' | 'SECONDAIRE' | 'SUPERIEUR';
   config: SchoolConfig;
   modules: SchoolModule[]; // Liste des modules activés globalement pour l'école
 }
@@ -219,7 +220,7 @@ export interface LessonLog {
   evaluationAction?: 'SUBMIT' | 'CORRECT'; // À rendre / À corriger
 
   // Validation
-  validationStatus: 'DRAFT' | 'VALIDATED';
+  validationStatus: 'DRAFT' | 'SUBMITTED' | 'VALIDATED' | 'REJECTED';
   validatedBy?: string;
 
   attachments?: string[];
@@ -382,11 +383,25 @@ export interface Resource {
   lastDownloadDate?: string; // Date du dernier téléchargement
 }
 
+export interface Course {
+  id: string;
+  schoolId: string;
+  name: string;
+  code: string;
+  description: string;
+  subject: string;
+  level: string;
+  coefficient: number;
+  hoursPerWeek: number;
+  teacherId?: string;
+}
+
 export enum ViewState {
   DASHBOARD = 'DASHBOARD',
   STUDENTS = 'STUDENTS',
   TEACHERS = 'TEACHERS',
   ACADEMIC = 'ACADEMIC',
+  COURSES = 'COURSES', // New view
   TIMETABLE = 'TIMETABLE', // New view
   HOMEWORK = 'HOMEWORK',
   GRADES = 'GRADES',

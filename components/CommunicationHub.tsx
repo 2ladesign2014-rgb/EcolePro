@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Message, SystemUser, UserRole } from '../types';
-import { Send, Search, MoreVertical, Phone, Video, Megaphone, User } from 'lucide-react';
+import { Message, SystemUser } from '../types';
+import { Send, Search, MoreVertical, Phone, Video, Megaphone } from 'lucide-react';
 import { db } from '../services/db';
 
 interface CommunicationHubProps {
@@ -86,7 +86,7 @@ export const CommunicationHub: React.FC<CommunicationHubProps> = ({ messages, on
     const isBroadcast = activeContact.startsWith('broadcast');
 
     const newMsg: Message = {
-      id: Date.now().toString(),
+      id: `${new Date().getTime()}`,
       schoolId: currentSchoolId,
       sender: 'Moi',
       senderRole: currentUser?.role,

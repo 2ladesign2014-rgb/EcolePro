@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { MoreHorizontal, Search, Filter, UserPlus, X, Trash2, Save, BellOff, User, Users, Phone, Mail, ArrowRightLeft, Inbox, CheckCircle, XCircle, History, ArrowRight, ExternalLink, Send, Info, Camera, Upload, Plus } from 'lucide-react';
+import { Search, UserPlus, X, Trash2, Save, BellOff, User, Users, Phone, Mail, ArrowRightLeft, Inbox, CheckCircle, XCircle, History, ArrowRight, Send, Info, Camera, Plus } from 'lucide-react';
 import { Student, StudentStatus, School, SystemUser } from '../types';
 import { db } from '../services/db';
 

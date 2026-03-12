@@ -317,7 +317,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ events: initialEvent
                               <select 
                                 className="w-full p-2 border border-gray-300 rounded text-sm bg-white"
                                 value={eventForm.category}
-                                onChange={e => setEventForm({...eventForm, category: e.target.value as any})}
+                                onChange={e => setEventForm({...eventForm, category: e.target.value as CalendarEvent['category']})}
                               >
                                   <option value="PEDAGOGIC">Pédagogique</option>
                                   <option value="EXTRA_CURRICULAR">Extra-scolaire</option>

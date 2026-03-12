@@ -16,15 +16,16 @@ import { SettingsManager } from './components/SettingsManager';
 import { LibraryManager } from './components/LibraryManager'; 
 import { ResourcesManager } from './components/ResourcesManager';
 import { CanteenManager } from './components/CanteenManager'; 
+import { CourseManager } from './components/CourseManager';
 import { TimeTableManager } from './components/TimeTableManager'; // New Import
-import { ViewState, DashboardStats, Student, Teacher, SchoolClass, Transaction, Message, CalendarEvent, SystemUser, AppNotification, School } from './types';
+import { ViewState, DashboardStats, Student, Teacher, SchoolClass, Course, Transaction, Message, CalendarEvent, SystemUser, AppNotification, School } from './types';
 import { db } from './services/db';
-import { Bell, Wifi, WifiOff, Lock, AlertCircle, Server, X, CheckCircle, Building, ChevronDown, Settings } from 'lucide-react';
+import { Bell, Lock, CheckCircle, Building, ChevronDown, Settings } from 'lucide-react';
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<SystemUser | null>(null);
   const [activeSchool, setActiveSchool] = useState<School | null>(null);
-  const [schools, setSchools] = useState<School[]>([]);
+  const [schools, setSchools] = useState<School[]>(() => db.getSchools());
 
   const [currentView, setCurrentView] = useState<ViewState>(ViewState.DASHBOARD);
   const [isOnline, setIsOnline] = useState<boolean>(navigator.onLine);
@@ -52,6 +53,7 @@ const App: React.FC = () => {
   const [outgoingTransfers, setOutgoingTransfers] = useState<Student[]>([]); // New state for outgoing
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [classes, setClasses] = useState<SchoolClass[]>([]);
+  const [courses, setCourses] = useState<Course[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
@@ -59,25 +61,26 @@ const App: React.FC = () => {
   // Initialization
   useEffect(() => {
     const allSchools = db.getSchools();
-    setSchools(allSchools);
 
     // Check for existing session
     const savedSession = localStorage.getItem('session');
     if (savedSession) {
-      const user = JSON.parse(savedSession);
-      setCurrentUser(user);
-      
-      // Determine Active School
-      if (user.schoolId) {
-          // Normal User: Linked to specific school
-          const usersSchool = allSchools.find(s => s.id === user.schoolId);
-          setActiveSchool(usersSchool || allSchools[0]);
-      } else if (user.role === 'SUPER_ADMIN') {
-          // Super Admin: Default to first school or saved preference
-          const savedSchoolId = localStorage.getItem('activeSchoolId');
-          const defaultSchool = allSchools.find(s => s.id === savedSchoolId) || allSchools[0];
-          setActiveSchool(defaultSchool);
-      }
+      Promise.resolve().then(() => {
+        const user = JSON.parse(savedSession);
+        setCurrentUser(user);
+        
+        // Determine Active School
+        if (user.schoolId) {
+            // Normal User: Linked to specific school
+            const usersSchool = allSchools.find(s => s.id === user.schoolId);
+            setActiveSchool(usersSchool || allSchools[0]);
+        } else if (user.role === 'SUPER_ADMIN') {
+            // Super Admin: Default to first school or saved preference
+            const savedSchoolId = localStorage.getItem('activeSchoolId');
+            const defaultSchool = allSchools.find(s => s.id === savedSchoolId) || allSchools[0];
+            setActiveSchool(defaultSchool);
+        }
+      });
     }
 
     // Online/Offline Listeners
@@ -99,15 +102,18 @@ const App: React.FC = () => {
         const schoolId = activeSchool.id;
         
         // Load Data filtered by School
-        setStudents(db.getStudents(schoolId));
-        setIncomingTransfers(db.getIncomingTransfers(schoolId));
-        setOutgoingTransfers(db.getTransferredOutStudents(schoolId)); // Fetch outgoing history
-        setTeachers(db.getTeachers(schoolId));
-        setClasses(db.getClasses(schoolId));
-        setTransactions(db.getTransactions(schoolId));
-        setMessages(db.getMessages(schoolId));
-        setEvents(db.getEvents(schoolId));
-        setNotifications(db.getAppNotifications(currentUser, schoolId));
+        Promise.resolve().then(() => {
+          setStudents(db.getStudents(schoolId));
+          setIncomingTransfers(db.getIncomingTransfers(schoolId));
+          setOutgoingTransfers(db.getTransferredOutStudents(schoolId)); // Fetch outgoing history
+          setTeachers(db.getTeachers(schoolId));
+          setClasses(db.getClasses(schoolId));
+          setCourses(db.getCourses(schoolId));
+          setTransactions(db.getTransactions(schoolId));
+          setMessages(db.getMessages(schoolId));
+          setEvents(db.getEvents(schoolId));
+          setNotifications(db.getAppNotifications(currentUser, schoolId));
+        });
         
         if (currentUser.role === 'SUPER_ADMIN') {
             localStorage.setItem('activeSchoolId', schoolId);
@@ -167,7 +173,10 @@ const App: React.FC = () => {
   };
 
   const handleRefreshClasses = () => {
-    if (activeSchool) setClasses(db.getClasses(activeSchool.id));
+    if (activeSchool) {
+        setClasses(db.getClasses(activeSchool.id));
+        setCourses(db.getCourses(activeSchool.id));
+    }
   };
   
   const handleRefreshTeachers = () => {
@@ -256,6 +265,7 @@ const App: React.FC = () => {
           case ViewState.STUDENTS: return 'ÉLÈVES & INSCRIPTIONS';
           case ViewState.TEACHERS: return 'PERSONNEL';
           case ViewState.ACADEMIC: return 'ACADÉMIQUE';
+          case ViewState.COURSES: return 'GESTION DES COURS';
           case ViewState.TIMETABLE: return 'EMPLOI DU TEMPS';
           case ViewState.HOMEWORK: return 'CAHIER DE TEXTE';
           case ViewState.GRADES: return 'NOTES & BULLETINS';
@@ -280,6 +290,7 @@ const App: React.FC = () => {
         [ViewState.STUDENTS]: 'STUDENTS.read',
         [ViewState.TEACHERS]: 'TEACHERS.read',
         [ViewState.ACADEMIC]: 'ACADEMIC.read',
+        [ViewState.COURSES]: 'COURSES.read',
         [ViewState.TIMETABLE]: 'TIMETABLE.read',
         [ViewState.HOMEWORK]: 'HOMEWORK.read',
         [ViewState.GRADES]: 'GRADES.read',
@@ -326,6 +337,14 @@ const App: React.FC = () => {
                     classes={classes} 
                     teachers={teachers} 
                     onRefresh={handleRefreshClasses} 
+                    currentSchoolId={currentSchoolId}
+                    currentUser={currentUser}
+                 />;
+      case ViewState.COURSES:
+          return <CourseManager 
+                    courses={courses}
+                    teachers={teachers}
+                    onRefresh={handleRefreshClasses}
                     currentSchoolId={currentSchoolId}
                     currentUser={currentUser}
                  />;

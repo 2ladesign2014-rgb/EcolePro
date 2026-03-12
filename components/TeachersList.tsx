@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { MoreHorizontal, Search, Filter, UserPlus, Mail, Phone, Briefcase, X, Camera, Plus, Trash2, Edit } from 'lucide-react';
+import { Search, Filter, UserPlus, Mail, Phone, Briefcase, X, Camera, Plus, Trash2, Edit } from 'lucide-react';
 import { Teacher, SystemUser } from '../types';
 import { db } from '../services/db';
 import { DEFAULT_SUBJECTS } from '../constants';
@@ -26,10 +26,12 @@ export const TeachersList: React.FC<TeachersListProps> = ({ teachers, currentSch
   const canWrite = db.hasPermission(currentSchoolId, currentUser.role, 'TEACHERS.write');
 
   useEffect(() => {
-      const config = db.getSchoolConfig(currentSchoolId);
-      if (config.subjects) {
-          setSubjects(config.subjects);
-      }
+      Promise.resolve().then(() => {
+        const config = db.getSchoolConfig(currentSchoolId);
+        if (config.subjects) {
+            setSubjects(config.subjects);
+        }
+      });
   }, [currentSchoolId]);
 
   const filteredTeachers = teachers.filter(t => 
@@ -80,9 +82,9 @@ export const TeachersList: React.FC<TeachersListProps> = ({ teachers, currentSch
         phone: formData.phone || '',
         specialty: formData.specialty || '',
         subject: formData.subject || '',
-        status: (formData.status as any) || 'Actif',
+        status: (formData.status as Teacher['status']) || 'Actif',
         joinDate: formData.joinDate || new Date().toISOString().split('T')[0],
-        contractType: (formData.contractType as any) || 'CDI',
+        contractType: (formData.contractType as Teacher['contractType']) || 'CDI',
         baseSalary: Number(formData.baseSalary) || 0,
         photoUrl: formData.photoUrl
     };
@@ -280,7 +282,7 @@ export const TeachersList: React.FC<TeachersListProps> = ({ teachers, currentSch
                   <select 
                     className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none bg-white text-sm"
                     value={formData.status}
-                    onChange={e => setFormData({...formData, status: e.target.value as any})}
+                    onChange={e => setFormData({...formData, status: e.target.value as 'Actif' | 'Inactif' | 'En congé'})}
                   >
                     <option value="Actif">Actif</option>
                     <option value="Inactif">Inactif</option>

@@ -1,5 +1,5 @@
 
-import { Student, StudentStatus, Teacher, SchoolClass, Transaction, Message, CalendarEvent, SystemUser, SchoolConfig, AuditLogEntry, Book, Loan, Resource, LessonLog, SchoolModule, PermissionId, UserRole, CanteenItem, TimeSlot } from './types';
+import { Student, StudentStatus, Teacher, SchoolClass, Course, Transaction, Message, CalendarEvent, SystemUser, SchoolConfig, AuditLogEntry, Book, Loan, Resource, LessonLog, SchoolModule, PermissionId, UserRole, CanteenItem, TimeSlot } from './types';
 
 // Helper for Currency
 export const formatCurrency = (amount: number): string => {
@@ -10,6 +10,7 @@ export const AVAILABLE_MODULES: { id: SchoolModule, label: string, description: 
   { id: 'STUDENTS', label: 'Élèves & Inscriptions', description: 'Gestion des dossiers élèves, inscriptions et transferts.' },
   { id: 'TEACHERS', label: 'Personnel & RH', description: 'Gestion des enseignants, contrats et spécialités.' },
   { id: 'ACADEMIC', label: 'Académique (Classes)', description: 'Gestion des classes, salles et professeurs principaux.' },
+  { id: 'COURSES', label: 'Gestion des Cours', description: 'Catalogue des matières, coefficients et volumes horaires.' },
   { id: 'TIMETABLE', label: 'Emploi du Temps', description: 'Planification des cours, gestion des salles et horaires.' },
   { id: 'HOMEWORK', label: 'Cahier de Texte', description: 'Suivi des séances, devoirs et calendrier pédagogique.' },
   { id: 'GRADES', label: 'Gestion des Notes', description: 'Saisie des notes, calcul des moyennes et bulletins.' },
@@ -56,6 +57,10 @@ export const DETAILED_PERMISSIONS: Record<string, { id: string, label: string, d
         { id: 'ACADEMIC.read', label: 'Vue Classes', desc: 'Voir la structure pédagogique' },
         { id: 'ACADEMIC.write', label: 'Gestion Classes', desc: 'Créer classes et emploi du temps' }
     ],
+    COURSES: [
+        { id: 'COURSES.read', label: 'Catalogue des Cours', desc: 'Voir la liste des cours et matières' },
+        { id: 'COURSES.write', label: 'Gestion des Cours', desc: 'Ajouter, modifier ou supprimer des cours' }
+    ],
     FINANCE: [
         { id: 'FINANCE.read', label: 'Vue Financière', desc: 'Voir l\'historique financier' },
         { id: 'FINANCE.write', label: 'Opérations Financières', desc: 'Saisir paiements, dépenses et salaires' }
@@ -83,7 +88,7 @@ export const DEFAULT_PERMISSIONS: Record<UserRole, PermissionId[]> = {
   SUPER_ADMIN: [
     'STUDENTS.read', 'STUDENTS.enroll', 'STUDENTS.transfer', 
     'TEACHERS.read', 'TEACHERS.write',
-    'ACADEMIC.read', 'ACADEMIC.write', 'TIMETABLE.read', 'TIMETABLE.write',
+    'ACADEMIC.read', 'ACADEMIC.write', 'COURSES.read', 'COURSES.write', 'TIMETABLE.read', 'TIMETABLE.write',
     'HOMEWORK.read', 'HOMEWORK.write',
     'GRADES.read', 'GRADES.write', 'FINANCE.read', 'FINANCE.write',
     'LIBRARY.read', 'LIBRARY.write', 'RESOURCES.read', 'RESOURCES.write',
@@ -94,7 +99,7 @@ export const DEFAULT_PERMISSIONS: Record<UserRole, PermissionId[]> = {
   ADMIN: [
     'STUDENTS.read', 'STUDENTS.enroll', 'STUDENTS.transfer',
     'TEACHERS.read', 'TEACHERS.write',
-    'ACADEMIC.read', 'ACADEMIC.write', 'TIMETABLE.read', 'TIMETABLE.write',
+    'ACADEMIC.read', 'ACADEMIC.write', 'COURSES.read', 'COURSES.write', 'TIMETABLE.read', 'TIMETABLE.write',
     'HOMEWORK.read', 'HOMEWORK.write',
     'GRADES.read', 'GRADES.write', 'FINANCE.read', 'FINANCE.write',
     'LIBRARY.read', 'LIBRARY.write', 'RESOURCES.read', 'RESOURCES.write',
@@ -105,7 +110,7 @@ export const DEFAULT_PERMISSIONS: Record<UserRole, PermissionId[]> = {
   TEACHER: [
     // Gestion des élèves (Consultation)
     'STUDENTS.read', 
-    'ACADEMIC.read', 'TIMETABLE.read',
+    'ACADEMIC.read', 'COURSES.read', 'TIMETABLE.read',
     // Pédagogie (Cahier de texte & Notes) - Lecture et Écriture garanties
     'HOMEWORK.read', 'HOMEWORK.write',
     'GRADES.read', 'GRADES.write',
@@ -120,14 +125,14 @@ export const DEFAULT_PERMISSIONS: Record<UserRole, PermissionId[]> = {
   ],
   STUDENT: [
     // Consultation uniquement pour les notes
-    'HOMEWORK.read', 'GRADES.read', 'TIMETABLE.read',
+    'HOMEWORK.read', 'GRADES.read', 'COURSES.read', 'TIMETABLE.read',
     'LIBRARY.read', 'RESOURCES.read', 
     'COMMUNICATION.read', 'COMMUNICATION.write', 'CALENDAR.read',
     'CANTEEN.read'
   ],
   PARENT: [
     // Consultation uniquement pour les notes
-    'HOMEWORK.read', 'GRADES.read', 'FINANCE.read', 'TIMETABLE.read',
+    'HOMEWORK.read', 'GRADES.read', 'FINANCE.read', 'COURSES.read', 'TIMETABLE.read',
     'COMMUNICATION.read', 'COMMUNICATION.write', 'CALENDAR.read',
     'CANTEEN.read'
   ],
@@ -147,6 +152,12 @@ export const DEFAULT_SUBJECTS = [
     'Mathématiques', 'Français', 'Anglais', 'Physique-Chimie', 
     'Histoire-Géo', 'SVT', 'Philosophie', 'EPS', 
     'Espagnol', 'Allemand', 'Arts Plastiques', 'Musique', 'Informatique'
+];
+
+export const MOCK_COURSES: Course[] = [
+  { id: 'CRS1', schoolId: 'SCHOOL_01', name: 'Mathématiques Avancées', code: 'MATH-TLE-C', description: 'Cours complet sur les nombres complexes, intégrales et géométrie.', subject: 'Mathématiques', level: 'Terminale', coefficient: 5, hoursPerWeek: 6, teacherId: 'T1' },
+  { id: 'CRS2', schoolId: 'SCHOOL_01', name: 'Littérature Française', code: 'FR-TLE-A', description: 'Étude des courants littéraires du XIXe siècle.', subject: 'Français', level: 'Terminale', coefficient: 4, hoursPerWeek: 4, teacherId: 'T2' },
+  { id: 'CRS3', schoolId: 'SCHOOL_01', name: 'Physique Fondamentale', code: 'PHYS-1ERE-D', description: 'Mécanique, électricité et optique.', subject: 'Physique-Chimie', level: 'Première', coefficient: 3, hoursPerWeek: 4, teacherId: '' }
 ];
 
 export const MOCK_STUDENTS: Student[] = [

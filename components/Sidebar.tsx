@@ -3,7 +3,7 @@ import React from 'react';
 import { 
   LayoutDashboard, Users, Bot, Settings, LogOut, GraduationCap,
   Briefcase, BookOpen, BadgeEuro, Library, MessageSquare,
-  CalendarDays, FolderOpen, Bug, NotebookPen, Utensils, Clock
+  CalendarDays, FolderOpen, Bug, NotebookPen, Utensils, Clock, Layers
 } from 'lucide-react';
 import { ViewState, SystemUser, UserRole, SchoolModule } from '../types';
 import { db } from '../services/db';
@@ -51,7 +51,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: ViewState.DASHBOARD, label: 'Tableau de bord', icon: LayoutDashboard }, // Pas de module = Accès par défaut
     { id: ViewState.STUDENTS, label: 'Élèves & Inscriptions', icon: Users, module: 'STUDENTS' },
     { id: ViewState.TEACHERS, label: 'Personnel & RH', icon: Briefcase, module: 'TEACHERS' },
-    { id: ViewState.ACADEMIC, label: 'Académique', icon: BookOpen, module: 'ACADEMIC' }, 
+    { id: ViewState.COURSES, label: 'Gestion des Cours', icon: BookOpen, module: 'COURSES' },
+    { id: ViewState.ACADEMIC, label: 'Académique', icon: Layers, module: 'ACADEMIC' }, 
     { id: ViewState.TIMETABLE, label: 'Emploi du Temps', icon: Clock, module: 'TIMETABLE' },
     { id: ViewState.HOMEWORK, label: 'Cahier de Texte', icon: NotebookPen, module: 'HOMEWORK' },
     { id: ViewState.CALENDAR, label: 'Calendrier', icon: CalendarDays, module: 'CALENDAR' },
@@ -62,7 +63,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: ViewState.RESOURCES, label: 'Ressources Pédago.', icon: FolderOpen, module: 'RESOURCES' },
     { id: ViewState.COMMUNICATION, label: 'Communication', icon: MessageSquare, module: 'COMMUNICATION' },
     { id: ViewState.AI_ASSISTANT, label: 'Assistant IA', icon: Bot, module: 'AI_ASSISTANT' },
-    { id: ViewState.SETTINGS, label: 'Configuration', icon: Settings, module: 'SETTINGS' as any }, // Module système spécial
+    { id: ViewState.SETTINGS, label: 'Configuration', icon: Settings, module: 'SETTINGS' as unknown as SchoolModule }, // Module système spécial
   ];
 
   // Filtrage dynamique des éléments du menu
@@ -73,7 +74,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     const schoolId = currentUser.schoolId || '';
 
     // 2. Vérifier si le module est activé pour l'école (sauf SETTINGS qui est système)
-    if (item.module !== 'SETTINGS' as any) {
+    if (item.module !== 'SETTINGS' as unknown as SchoolModule) {
         if (!enabledModules.includes(item.module)) {
             return false; // Module désactivé pour cet établissement
         }
@@ -82,7 +83,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     // 3. Vérifier les permissions de l'utilisateur (RBAC)
     // Pour SETTINGS, on vérifie le droit d'écriture (administration).
     // Pour les autres modules, on vérifie le droit de lecture (.read).
-    const permissionToCheck = item.module === 'SETTINGS' as any 
+    const permissionToCheck = item.module === 'SETTINGS' as unknown as SchoolModule 
         ? 'SETTINGS.write' 
         : `${item.module}.read`;
 

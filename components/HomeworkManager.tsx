@@ -5,7 +5,7 @@ import { db } from '../services/db';
 import { DEFAULT_SUBJECTS } from '../constants';
 import { 
   BookOpen, Calendar, Clock, Plus, X, Save, 
-  Filter, ChevronRight, AlertCircle, CheckCircle, Flag, LayoutList, ClipboardList, ShieldCheck, Trash2, Copy 
+  Filter, AlertCircle, Flag, LayoutList, ClipboardList, ShieldCheck, Trash2, Copy 
 } from 'lucide-react';
 
 interface HomeworkManagerProps {
@@ -35,19 +35,21 @@ export const HomeworkManager: React.FC<HomeworkManagerProps> = ({
   const canWrite = db.hasPermission(currentSchoolId, currentUser.role, 'HOMEWORK.write');
 
   useEffect(() => {
-    const allLogs = db.getLessonLogs(currentSchoolId);
-    setLogs(allLogs);
-    
-    // Default filter for teacher/student convenience
-    if (classes.length > 0 && !selectedClass) {
-        setSelectedClass(classes[0].id);
-    }
+    Promise.resolve().then(() => {
+      const allLogs = db.getLessonLogs(currentSchoolId);
+      setLogs(allLogs);
+      
+      // Default filter for teacher/student convenience
+      if (classes.length > 0 && !selectedClass) {
+          setSelectedClass(classes[0].id);
+      }
 
-    const config = db.getSchoolConfig(currentSchoolId);
-    if (config.subjects) {
-        setSubjects(config.subjects);
-    }
-  }, [currentSchoolId, classes]);
+      const config = db.getSchoolConfig(currentSchoolId);
+      if (config.subjects) {
+          setSubjects(config.subjects);
+      }
+    });
+  }, [currentSchoolId, classes, selectedClass]);
 
   const filteredLogs = logs.filter(log => {
     return !selectedClass || log.classId === selectedClass;
@@ -81,9 +83,9 @@ export const HomeworkManager: React.FC<HomeworkManagerProps> = ({
         dueDate: newLog.dueDate,
         
         evaluationDate: newLog.evaluationDate,
-        evaluationAction: newLog.evaluationAction as any,
+        evaluationAction: newLog.evaluationAction as 'SUBMIT' | 'CORRECT' | undefined,
 
-        validationStatus: newLog.validationStatus as any || 'DRAFT',
+        validationStatus: newLog.validationStatus as 'DRAFT' | 'SUBMITTED' | 'VALIDATED' | 'REJECTED' || 'DRAFT',
         validatedBy: newLog.validationStatus === 'VALIDATED' ? currentUser.name : undefined
     };
 
@@ -460,7 +462,7 @@ export const HomeworkManager: React.FC<HomeworkManagerProps> = ({
                          <select 
                             className="w-full px-3 py-2 border border-rose-200 rounded-lg text-sm focus:ring-2 focus:ring-rose-500 outline-none bg-white"
                             value={newLog.evaluationAction || ''}
-                            onChange={e => setNewLog({...newLog, evaluationAction: e.target.value as any})}
+                            onChange={e => setNewLog({...newLog, evaluationAction: e.target.value as 'SUBMIT' | 'CORRECT' | undefined})}
                          >
                             <option value="">Aucune action</option>
                             <option value="SUBMIT">Travail à rendre</option>

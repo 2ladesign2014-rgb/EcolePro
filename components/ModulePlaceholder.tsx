@@ -1,5 +1,5 @@
 import React from 'react';
-import { Hammer, Construction } from 'lucide-react';
+import { Construction } from 'lucide-react';
 
 interface ModulePlaceholderProps {
   title: string;

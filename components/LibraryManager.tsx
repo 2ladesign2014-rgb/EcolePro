@@ -1,10 +1,10 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Book, Loan, LibraryNotification, SystemUser, Student } from '../types';
 import { db } from '../services/db';
 import { 
   BookOpen, Calendar, Bell, Search, Plus, BookMarked, 
-  AlertCircle, Clock, CheckCircle, ChevronRight, X, Save, Trash2, User, AlertTriangle, Gift, Tag
+  AlertCircle, Clock, CheckCircle, ChevronRight, X, Trash2, AlertTriangle, Gift, Tag
 } from 'lucide-react';
 
 interface LibraryManagerProps {
@@ -57,16 +57,16 @@ export const LibraryManager: React.FC<LibraryManagerProps> = ({ currentUser, cur
   const [newBook, setNewBook] = useState<Partial<Book>>({ status: 'AVAILABLE', provenance: 'ACHAT' });
   const [newLoan, setNewLoan] = useState({ studentId: '', bookId: '', dueDate: '' });
 
-  useEffect(() => {
-    refreshLibraryData();
-  }, []);
-
-  const refreshLibraryData = () => {
+  const refreshLibraryData = useCallback(() => {
     setBooks(db.getBooks());
     setLoans(db.getLoans());
     setNotifications(db.getLibraryNotifications());
     setStudents(db.getStudents());
-  };
+  }, []);
+
+  useEffect(() => {
+    Promise.resolve().then(() => refreshLibraryData());
+  }, [refreshLibraryData]);
 
   const canWrite = db.hasPermission(currentSchoolId, currentUser?.role || 'STUDENT', 'LIBRARY.write');
 
@@ -432,7 +432,7 @@ export const LibraryManager: React.FC<LibraryManagerProps> = ({ currentUser, cur
                           <select 
                               className="w-full p-2 border rounded bg-white text-sm"
                               value={newBook.provenance}
-                              onChange={e => setNewBook({...newBook, provenance: e.target.value as any})}
+                              onChange={e => setNewBook({...newBook, provenance: e.target.value as 'ACHAT' | 'DON'})}
                           >
                               <option value="ACHAT">Achat (Budget École)</option>
                               <option value="DON">Dons et Legs</option>

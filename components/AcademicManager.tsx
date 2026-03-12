@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { SchoolClass, Teacher, SystemUser } from '../types';
-import { Users, MapPin, BookOpen, GraduationCap, Plus, Edit, Trash2, X, Save, LayoutGrid, List, Search, Printer, MoreVertical, ChevronRight, Home, Download } from 'lucide-react';
+import { Users, MapPin, BookOpen, GraduationCap, Plus, Edit, Trash2, X, LayoutGrid, List, Search, Printer, MoreVertical, ChevronRight, Home } from 'lucide-react';
 import { db } from '../services/db';
 
 interface AcademicManagerProps {
@@ -471,7 +471,7 @@ export const AcademicManager: React.FC<AcademicManagerProps> = ({ classes, teach
                      </select>
                    </div>
 
-                   {/* Row 2: Section & Effectif */}
+                   {/* Row 2: Section, Effectif Actuel & Capacité */}
                    <div>
                      <label className="block text-sm font-medium text-gray-700 mb-1">Section</label>
                      <input 
@@ -482,16 +482,27 @@ export const AcademicManager: React.FC<AcademicManagerProps> = ({ classes, teach
                        onChange={e => setFormData({...formData, section: e.target.value})}
                      />
                    </div>
-                   <div>
-                     <label className="block text-sm font-medium text-gray-700 mb-1">Effectif maximum</label>
-                     <input 
-                       type="number" 
-                       min="0"
-                       placeholder="Ex: 40"
-                       className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm"
-                       value={formData.capacity || ''}
-                       onChange={e => setFormData({...formData, capacity: parseInt(e.target.value)})}
-                     />
+                   <div className="grid grid-cols-2 gap-2">
+                     <div>
+                       <label className="block text-sm font-medium text-gray-700 mb-1">Effectif</label>
+                       <input 
+                         type="number" 
+                         min="0"
+                         className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                         value={formData.studentCount || 0}
+                         onChange={e => setFormData({...formData, studentCount: parseInt(e.target.value)})}
+                       />
+                     </div>
+                     <div>
+                       <label className="block text-sm font-medium text-gray-700 mb-1">Capacité</label>
+                       <input 
+                         type="number" 
+                         min="0"
+                         className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                         value={formData.capacity || ''}
+                         onChange={e => setFormData({...formData, capacity: parseInt(e.target.value)})}
+                       />
+                     </div>
                    </div>
 
                    {/* Row 3: Salle & Prof */}

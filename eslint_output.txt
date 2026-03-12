@@ -1,0 +1,40 @@
+
+/app/applet/components/SettingsManager.tsx
+    6:96   error  'KeyRound' is defined but never used      @typescript-eslint/no-unused-vars
+  188:35   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  803:189  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/app/applet/components/Sidebar.tsx
+  66:93  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  77:39  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  86:61  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/app/applet/components/StudentList.tsx
+  3:10   error  'MoreHorizontal' is defined but never used  @typescript-eslint/no-unused-vars
+  3:34   error  'Filter' is defined but never used          @typescript-eslint/no-unused-vars
+  3:170  error  'ExternalLink' is defined but never used    @typescript-eslint/no-unused-vars
+  3:204  error  'Upload' is defined but never used          @typescript-eslint/no-unused-vars
+
+/app/applet/components/TeachersList.tsx
+    3:10  error  'MoreHorizontal' is defined but never used  @typescript-eslint/no-unused-vars
+   85:37  error  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+   87:49  error  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+  285:88  error  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+
+/app/applet/components/TimeTableManager.tsx
+    6:3    error  'Calendar' is defined but never used       @typescript-eslint/no-unused-vars
+    6:35   error  'Filter' is defined but never used         @typescript-eslint/no-unused-vars
+    6:43   error  'Trash2' is defined but never used         @typescript-eslint/no-unused-vars
+    7:3    error  'AlertTriangle' is defined but never used  @typescript-eslint/no-unused-vars
+    7:40   error  'Edit' is defined but never used           @typescript-eslint/no-unused-vars
+   88:41   error  Unexpected any. Specify a different type   @typescript-eslint/no-explicit-any
+  144:58   error  'endStr' is defined but never used         @typescript-eslint/no-unused-vars
+  366:96   error  Unexpected any. Specify a different type   @typescript-eslint/no-explicit-any
+  521:96   error  Unexpected any. Specify a different type   @typescript-eslint/no-explicit-any
+  654:105  error  Unexpected any. Specify a different type   @typescript-eslint/no-explicit-any
+
+/app/applet/services/db.ts
+  864:46  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+✖ 25 problems (25 errors, 0 warnings)
+

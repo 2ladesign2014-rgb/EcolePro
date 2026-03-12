@@ -5,7 +5,7 @@ import { db } from '../services/db';
 import { DEFAULT_SUBJECTS } from '../constants';
 import { 
   Search, Upload, Filter, Download, FileText, 
-  Video, FileQuestion, File, Trash2, Plus, X, Eye, Play
+  Video, FileQuestion, File, Trash2, X, Eye, Play
 } from 'lucide-react';
 
 interface ResourcesManagerProps {
@@ -36,12 +36,14 @@ export const ResourcesManager: React.FC<ResourcesManagerProps> = ({ currentSchoo
   });
 
   useEffect(() => {
-    setResources(db.getResources(currentSchoolId));
-    
-    const config = db.getSchoolConfig(currentSchoolId);
-    if (config.subjects) {
-        setAvailableSubjects(config.subjects);
-    }
+    Promise.resolve().then(() => {
+      setResources(db.getResources(currentSchoolId));
+      
+      const config = db.getSchoolConfig(currentSchoolId);
+      if (config.subjects) {
+          setAvailableSubjects(config.subjects);
+      }
+    });
   }, [currentSchoolId]);
 
   const canWrite = currentUser ? db.hasPermission(currentSchoolId, currentUser.role, 'RESOURCES.write') : false;
@@ -253,7 +255,7 @@ export const ResourcesManager: React.FC<ResourcesManagerProps> = ({ currentSchoo
          <select 
             className="text-sm border-gray-200 rounded-md px-2 py-1 focus:border-blue-500 outline-none font-medium text-gray-600"
             value={sortOrder}
-            onChange={e => setSortOrder(e.target.value as any)}
+            onChange={e => setSortOrder(e.target.value as 'DATE' | 'DOWNLOADS' | 'NAME')}
          >
             <option value="DATE">Plus récents</option>
             <option value="DOWNLOADS">Plus téléchargés</option>

@@ -1,11 +1,11 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { CanteenItem, Transaction, FoodCategory, SystemUser } from '../types';
 import { db } from '../services/db';
 import { formatCurrency } from '../constants';
 import { 
-  Utensils, TrendingUp, ShoppingCart, Package, Plus, Save, Trash2, 
-  BarChart3, Calendar, Filter, Download, Beef, Carrot, Coffee, CircleDollarSign
+  TrendingUp, ShoppingCart, Package, Plus, Trash2, 
+  BarChart3, Beef, Carrot, Coffee, CircleDollarSign
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
@@ -31,17 +31,17 @@ export const CanteenManager: React.FC<CanteenManagerProps> = ({ currentSchoolId,
 
   const [reportFilter, setReportFilter] = useState<'DAY' | 'MONTH' | 'YEAR'>('MONTH');
 
-  useEffect(() => {
-      refreshData();
-  }, [currentSchoolId]);
-
-  const refreshData = () => {
+  const refreshData = useCallback(() => {
       setItems(db.getCanteenItems(currentSchoolId));
       const allTrx = db.getTransactions(currentSchoolId);
       // Filter transactions related to Canteen (Expenses for stock or Sales)
       // Note: We identify them by type='Canteen' or specific description logic if needed
       setTransactions(allTrx.filter(t => t.type === 'Canteen'));
-  };
+  }, [currentSchoolId]);
+
+  useEffect(() => {
+      Promise.resolve().then(() => refreshData());
+  }, [refreshData]);
 
   const canWrite = db.hasPermission(currentSchoolId, currentUser.role, 'CANTEEN.write');
 
@@ -152,7 +152,6 @@ export const CanteenManager: React.FC<CanteenManagerProps> = ({ currentSchoolId,
 
   // --- Report Data Generation ---
   const getChartData = () => {
-      const data: any[] = [];
       const grouped: Record<string, {name: string, income: number, expense: number}> = {};
 
       transactions.forEach(t => {

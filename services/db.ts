@@ -1,6 +1,6 @@
 
-import { Student, Teacher, SchoolClass, Transaction, Message, CalendarEvent, SystemUser, SchoolConfig, AuditLogEntry, Book, Loan, LibraryNotification, Resource, AppNotification, SupportTicket, UserRole, AppNotificationCategory, ViewState, StudentStatus, NotificationChannel, School, LessonLog, CanteenItem, Grade, TimeSlot } from '../types';
-import { MOCK_STUDENTS, MOCK_TEACHERS, MOCK_CLASSES, MOCK_TRANSACTIONS, MOCK_MESSAGES, MOCK_EVENTS, MOCK_SYSTEM_USERS, DEFAULT_SCHOOL_CONFIG, MOCK_AUDIT_LOGS, MOCK_BOOKS, MOCK_LOANS, MOCK_RESOURCES, MOCK_LESSON_LOGS, DEFAULT_PERMISSIONS, MOCK_CANTEEN_ITEMS, MOCK_TIME_SLOTS, AVAILABLE_MODULES } from '../constants';
+import { Student, Teacher, SchoolClass, Course, Transaction, Message, CalendarEvent, SystemUser, SchoolConfig, AuditLogEntry, Book, Loan, LibraryNotification, Resource, AppNotification, SupportTicket, UserRole, AppNotificationCategory, ViewState, StudentStatus, NotificationChannel, School, LessonLog, CanteenItem, Grade, TimeSlot } from '../types';
+import { MOCK_STUDENTS, MOCK_TEACHERS, MOCK_CLASSES, MOCK_COURSES, MOCK_TRANSACTIONS, MOCK_MESSAGES, MOCK_EVENTS, MOCK_SYSTEM_USERS, DEFAULT_SCHOOL_CONFIG, MOCK_AUDIT_LOGS, MOCK_BOOKS, MOCK_LOANS, MOCK_RESOURCES, MOCK_LESSON_LOGS, DEFAULT_PERMISSIONS, MOCK_CANTEEN_ITEMS, MOCK_TIME_SLOTS, AVAILABLE_MODULES } from '../constants';
 
 // Mock Schools Data for Initialization
 const INITIAL_SCHOOLS: School[] = [
@@ -122,7 +122,7 @@ class DatabaseService {
   // --- STUDENTS ---
 
   getStudents(schoolId?: string): Student[] {
-    let students = this.get('students', MOCK_STUDENTS.map(s => ({...s, schoolId: 'SCHOOL_01'})));
+    const students = this.get('students', MOCK_STUDENTS.map(s => ({...s, schoolId: 'SCHOOL_01'})));
     if (schoolId) {
       return students.filter(s => s.schoolId === schoolId);
     }
@@ -134,7 +134,7 @@ class DatabaseService {
   }
 
   getIncomingTransfers(targetSchoolId: string): Student[] {
-    let students = this.get('students', MOCK_STUDENTS.map(s => ({...s, schoolId: 'SCHOOL_01'})));
+    const students = this.get('students', MOCK_STUDENTS.map(s => ({...s, schoolId: 'SCHOOL_01'})));
     return students.filter(s => s.transferRequest?.targetSchoolId === targetSchoolId && s.transferRequest.status === 'PENDING');
   }
 
@@ -392,7 +392,7 @@ class DatabaseService {
   // --- TEACHERS ---
   
   getTeachers(schoolId?: string): Teacher[] {
-    let teachers = this.get('teachers', MOCK_TEACHERS.map(t => ({...t, schoolId: 'SCHOOL_01'})));
+    const teachers = this.get('teachers', MOCK_TEACHERS.map(t => ({...t, schoolId: 'SCHOOL_01'})));
     if (schoolId) return teachers.filter(t => t.schoolId === schoolId);
     return teachers;
   }
@@ -418,7 +418,7 @@ class DatabaseService {
   // --- CLASSES ---
 
   getClasses(schoolId?: string): SchoolClass[] {
-    let classes = this.get('classes', MOCK_CLASSES.map(c => ({...c, schoolId: 'SCHOOL_01'})));
+    const classes = this.get('classes', MOCK_CLASSES.map(c => ({...c, schoolId: 'SCHOOL_01'})));
     if (schoolId) return classes.filter(c => c.schoolId === schoolId);
     return classes;
   }
@@ -426,22 +426,57 @@ class DatabaseService {
   addClass(cls: SchoolClass): void {
     const classes = this.getClasses();
     this.set('classes', [...classes, cls]);
+    this.logAction('Création Classe', 'Admin', `Nouvelle classe: ${cls.name}`, 'INFO', cls.schoolId);
   }
 
   updateClass(cls: SchoolClass): void {
     const classes = this.getClasses();
     this.set('classes', classes.map(c => c.id === cls.id ? cls : c));
+    this.logAction('Modification Classe', 'Admin', `Mise à jour: ${cls.name}`, 'INFO', cls.schoolId);
   }
 
   deleteClass(id: string): void {
     const classes = this.getClasses();
+    const cls = classes.find(c => c.id === id);
     this.set('classes', classes.filter(c => c.id !== id));
+    if (cls) {
+      this.logAction('Suppression Classe', 'Admin', `Suppression de la classe: ${cls.name}`, 'WARNING', cls.schoolId);
+    }
+  }
+
+  // --- COURSES ---
+
+  getCourses(schoolId?: string): Course[] {
+    const courses = this.get('courses', MOCK_COURSES.map(c => ({...c, schoolId: 'SCHOOL_01'})));
+    if (schoolId) return courses.filter(c => c.schoolId === schoolId);
+    return courses;
+  }
+
+  saveCourse(course: Course): void {
+    const courses = this.getCourses();
+    const exists = courses.find(c => c.id === course.id);
+    if (exists) {
+      this.set('courses', courses.map(c => c.id === course.id ? course : c));
+      this.logAction('Modification Cours', 'Admin', `Mise à jour: ${course.name}`, 'INFO', course.schoolId);
+    } else {
+      this.set('courses', [course, ...courses]);
+      this.logAction('Nouveau Cours', 'Admin', `Création: ${course.name}`, 'INFO', course.schoolId);
+    }
+  }
+
+  deleteCourse(id: string): void {
+    const courses = this.getCourses();
+    const course = courses.find(c => c.id === id);
+    this.set('courses', courses.filter(c => c.id !== id));
+    if (course) {
+      this.logAction('Suppression Cours', 'Admin', `Suppression du cours: ${course.name}`, 'WARNING', course.schoolId);
+    }
   }
 
   // --- TIMETABLE ---
 
   getTimeSlots(schoolId?: string): TimeSlot[] {
-    let slots = this.get('timeSlots', MOCK_TIME_SLOTS.map(s => ({...s, schoolId: 'SCHOOL_01'})));
+    const slots = this.get('timeSlots', MOCK_TIME_SLOTS.map(s => ({...s, schoolId: 'SCHOOL_01'})));
     if (schoolId) return slots.filter(s => s.schoolId === schoolId);
     return slots;
   }
@@ -488,7 +523,7 @@ class DatabaseService {
   // --- LESSON LOGS ---
 
   getLessonLogs(schoolId?: string): LessonLog[] {
-    let logs = this.get('lessonLogs', MOCK_LESSON_LOGS.map(l => ({...l, schoolId: 'SCHOOL_01'})));
+    const logs = this.get('lessonLogs', MOCK_LESSON_LOGS.map(l => ({...l, schoolId: 'SCHOOL_01'})));
     if (schoolId) return logs.filter(l => l.schoolId === schoolId);
     return logs;
   }
@@ -518,7 +553,7 @@ class DatabaseService {
   // --- FINANCE ---
 
   getTransactions(schoolId?: string): Transaction[] {
-    let trxs = this.get('transactions', MOCK_TRANSACTIONS.map(t => ({...t, schoolId: 'SCHOOL_01'})));
+    const trxs = this.get('transactions', MOCK_TRANSACTIONS.map(t => ({...t, schoolId: 'SCHOOL_01'})));
     if (schoolId) return trxs.filter(t => t.schoolId === schoolId);
     return trxs;
   }
@@ -546,7 +581,7 @@ class DatabaseService {
 
   // --- CANTEEN ---
   getCanteenItems(schoolId?: string): CanteenItem[] {
-      let items = this.get('canteenItems', MOCK_CANTEEN_ITEMS.map(i => ({...i, schoolId: 'SCHOOL_01'})));
+      const items = this.get('canteenItems', MOCK_CANTEEN_ITEMS.map(i => ({...i, schoolId: 'SCHOOL_01'})));
       if (schoolId) return items.filter(i => i.schoolId === schoolId);
       return items;
   }
@@ -568,7 +603,7 @@ class DatabaseService {
   // --- MESSAGES ---
 
   getMessages(schoolId?: string): Message[] {
-    let msgs = this.get('messages', MOCK_MESSAGES.map(m => ({...m, schoolId: 'SCHOOL_01'})));
+    const msgs = this.get('messages', MOCK_MESSAGES.map(m => ({...m, schoolId: 'SCHOOL_01'})));
     if (schoolId) return msgs.filter(m => m.schoolId === schoolId);
     return msgs;
   }
@@ -593,7 +628,7 @@ class DatabaseService {
   // --- EVENTS ---
 
   getEvents(schoolId?: string): CalendarEvent[] {
-    let events = this.get('events', MOCK_EVENTS.map(e => ({...e, schoolId: 'SCHOOL_01'})));
+    const events = this.get('events', MOCK_EVENTS.map(e => ({...e, schoolId: 'SCHOOL_01'})));
     if (schoolId) return events.filter(e => e.schoolId === schoolId);
     return events;
   }
@@ -615,7 +650,7 @@ class DatabaseService {
 
   // --- LIBRARY ---
   getBooks(schoolId?: string): Book[] {
-    let books = this.get('books', MOCK_BOOKS.map(b => ({...b, schoolId: 'SCHOOL_01'})));
+    const books = this.get('books', MOCK_BOOKS.map(b => ({...b, schoolId: 'SCHOOL_01'})));
     if (schoolId) return books.filter(b => b.schoolId === schoolId);
     return books;
   }
@@ -631,7 +666,7 @@ class DatabaseService {
   }
   
   getLoans(schoolId?: string): Loan[] {
-    let loans = this.get('loans', MOCK_LOANS.map(l => ({...l, schoolId: 'SCHOOL_01'})));
+    const loans = this.get('loans', MOCK_LOANS.map(l => ({...l, schoolId: 'SCHOOL_01'})));
     if (schoolId) return loans.filter(l => l.schoolId === schoolId);
     return loans;
   }
@@ -740,7 +775,7 @@ class DatabaseService {
 
   // --- RESOURCES ---
   getResources(schoolId?: string): Resource[] {
-    let res = this.get('resources', MOCK_RESOURCES.map(r => ({...r, schoolId: 'SCHOOL_01'})));
+    const res = this.get('resources', MOCK_RESOURCES.map(r => ({...r, schoolId: 'SCHOOL_01'})));
     if (schoolId) return res.filter(r => r.schoolId === schoolId);
     return res;
   }
@@ -777,7 +812,7 @@ class DatabaseService {
 
   // --- SYSTEM USERS ---
   getSystemUsers(schoolId?: string): SystemUser[] {
-    let users = this.get('systemUsers', MOCK_SYSTEM_USERS.map(u => ({...u, schoolId: 'SCHOOL_01'})));
+    const users = this.get('systemUsers', MOCK_SYSTEM_USERS.map(u => ({...u, schoolId: 'SCHOOL_01'})));
     if (schoolId) return users.filter(u => u.schoolId === schoolId);
     return users;
   }
@@ -799,7 +834,7 @@ class DatabaseService {
 
   // --- LOGS & SUPPORT ---
   getAuditLogs(schoolId?: string): AuditLogEntry[] {
-    let logs = this.get('auditLogs', MOCK_AUDIT_LOGS.map(l => ({...l, schoolId: 'SCHOOL_01'})));
+    const logs = this.get('auditLogs', MOCK_AUDIT_LOGS.map(l => ({...l, schoolId: 'SCHOOL_01'})));
     if (schoolId) return logs.filter(l => l.schoolId === schoolId);
     return logs;
   }
@@ -826,6 +861,7 @@ class DatabaseService {
   
   // --- BACKUP & RESTORE ---
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private jsonToSql(tableName: string, data: any[]): string {
       if (!data || data.length === 0) return '';
       let sql = `-- Table: ${tableName}\n`;
@@ -860,7 +896,8 @@ class DatabaseService {
       notifications: this.get('notifications', []),
       lessonLogs: this.getLessonLogs(),
       canteenItems: this.getCanteenItems(),
-      timeSlots: this.getTimeSlots()
+      timeSlots: this.getTimeSlots(),
+      courses: this.getCourses()
     };
 
     if (format === 'JSON') {
@@ -881,6 +918,7 @@ class DatabaseService {
         sqlDump += this.jsonToSql('lesson_logs', backupData.lessonLogs);
         sqlDump += this.jsonToSql('canteen_items', backupData.canteenItems);
         sqlDump += this.jsonToSql('time_slots', backupData.timeSlots);
+        sqlDump += this.jsonToSql('courses', backupData.courses);
         return sqlDump;
     }
   }
@@ -905,6 +943,7 @@ class DatabaseService {
       if(data.lessonLogs) this.set('lessonLogs', data.lessonLogs);
       if(data.canteenItems) this.set('canteenItems', data.canteenItems);
       if(data.timeSlots) this.set('timeSlots', data.timeSlots);
+      if(data.courses) this.set('courses', data.courses);
       
       return true;
     } catch (e) {

@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { Student, SystemUser, Grade, School, Teacher } from '../types';
-import { Search, Printer, Plus, X, CheckSquare, ArrowRight, RefreshCw, FileSpreadsheet, Lock, FileText, Layers } from 'lucide-react';
+import { Printer, Plus, X, CheckSquare, ArrowRight, FileSpreadsheet, Lock, FileText, Layers } from 'lucide-react';
 import { db } from '../services/db';
 import { DEFAULT_SUBJECTS } from '../constants';
 
@@ -45,14 +45,16 @@ export const GradesManager: React.FC<GradesManagerProps> = ({ students, currentS
 
   // Initialize
   useEffect(() => {
-      setLocalStudents(students);
-      
-      // Set default class if available
-      const uniqueClasses = Array.from(new Set(students.map(s => s.classGrade))).sort();
-      if (uniqueClasses.length > 0 && !selectedClass) {
-          setSelectedClass(uniqueClasses[0]);
-      }
-  }, [students, currentSchoolId]);
+      Promise.resolve().then(() => {
+        setLocalStudents(students);
+        
+        // Set default class if available
+        const uniqueClasses = Array.from(new Set(students.map(s => s.classGrade))).sort();
+        if (uniqueClasses.length > 0 && !selectedClass) {
+            setSelectedClass(uniqueClasses[0]);
+        }
+      });
+  }, [students, currentSchoolId, selectedClass]);
 
   // --- Computed Data ---
   const uniqueClasses = Array.from(new Set(students.map(s => s.classGrade))).sort();
@@ -99,7 +101,7 @@ export const GradesManager: React.FC<GradesManagerProps> = ({ students, currentS
               bonusData
           };
       }).sort((a, b) => b.calculatedAverage - a.calculatedAverage); // Sort by avg for rank
-  }, [classStudents, selectedSubject, roundingMode, localStudents]);
+  }, [classStudents, selectedSubject, roundingMode]);
 
   // Filter for "NON CLASSÉ" tab
   const visibleStudents = useMemo(() => {
@@ -225,12 +227,22 @@ export const GradesManager: React.FC<GradesManagerProps> = ({ students, currentS
       student: Student, 
       school: School | undefined, 
       teachers: Teacher[], 
-      stats: any
+      stats: ReturnType<typeof calculateClassStats>
   ) => {
-      const { subjectRankings, subjectStats, globalRankings, classGlobalStats } = stats;
+      const { subjectRankings, globalRankings, classGlobalStats } = stats;
 
       // Rows Data
-      const rowsByCategory: Record<string, any[]> = { 'LETTRES': [], 'SCIENCES': [], 'AUTRES': [] };
+      interface BulletinRow {
+          subject: string;
+          notes: string;
+          avg: number;
+          coef: number;
+          points: number;
+          rank: string;
+          appreciation: string;
+          teacher: string;
+      }
+      const rowsByCategory: Record<string, BulletinRow[]> = { 'LETTRES': [], 'SCIENCES': [], 'AUTRES': [] };
       let grandTotalPoints = 0;
       let grandTotalCoef = 0;
 
@@ -272,7 +284,7 @@ export const GradesManager: React.FC<GradesManagerProps> = ({ students, currentS
       });
 
       const globalAvg = grandTotalCoef > 0 ? grandTotalPoints / grandTotalCoef : 0;
-      const studentGlobalRank = globalRankings.findIndex((s: any) => s.id === student.id) + 1;
+      const studentGlobalRank = globalRankings.findIndex((s: { id: string, avg: number }) => s.id === student.id) + 1;
 
       const generateGroupRows = (groupName: string, label: string) => {
           const rows = rowsByCategory[groupName];
@@ -655,7 +667,7 @@ export const GradesManager: React.FC<GradesManagerProps> = ({ students, currentS
                                     name="rounding" 
                                     className="mr-1" 
                                     checked={roundingMode === opt}
-                                    onChange={() => setRoundingMode(opt as any)}
+                                    onChange={() => setRoundingMode(opt as 'NON' | '0.25' | '0.50' | 'ENTIER')}
                                   />
                                   {opt}
                               </label>
@@ -817,7 +829,7 @@ export const GradesManager: React.FC<GradesManagerProps> = ({ students, currentS
                                 min="0" 
                                 className="w-full p-2 border border-gray-300 rounded font-bold"
                                 value={gradeForm.value !== undefined ? gradeForm.value : ''}
-                                onChange={e => setGradeForm({...gradeForm, value: e.target.value as any})}
+                                onChange={e => setGradeForm({...gradeForm, value: e.target.value ? parseFloat(e.target.value) : undefined})}
                                 required
                               />
                           </div>
